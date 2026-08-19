@@ -181,10 +181,21 @@ _find_tty() {
   while [ "$pid" -gt 1 ]; do
     local tty
     tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
-    if [ -n "$tty" ] && [ "$tty" != "??" ]; then
-      echo "/dev/$tty"
-      return 0
-    fi
+    # "no controlling terminal" is spelled "??" by BSD/macOS ps but "?" by
+    # procps on Linux. Accepting "?" builds the path /dev/? , and writing to it
+    # fails with EACCES -- which, under this script's `set -e`, aborted the
+    # whole hook BEFORE the chime played. Net effect on Linux: Stop,
+    # Notification and PermissionRequest never chimed at all.
+    case "$tty" in
+      ''|'?'|'??'|'-') ;;
+      *)
+        # Only accept something that is really a writable character device.
+        if [ -c "/dev/$tty" ] && [ -w "/dev/$tty" ]; then
+          echo "/dev/$tty"
+          return 0
+        fi
+        ;;
+    esac
     pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
   done
   return 1
@@ -193,7 +204,8 @@ _find_tty() {
 # Send terminal bell (BEL character) — hard-coded to attention-seeking events only
 if [[ "$terminal_bell" == "on" ]] && echo ",$TERMINAL_BELL_EVENTS," | grep -q ",$EVENT,"; then
   if tty_path=$(_find_tty); then
-    printf '\a' > "$tty_path"
+    # Never let an unwritable tty abort the hook and swallow the chime below.
+    printf '\a' > "$tty_path" 2>/dev/null || true
   fi
 fi
 

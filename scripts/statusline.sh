@@ -84,6 +84,13 @@ input_tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empt
 output_tokens=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
 ctx_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
 
+# Rate limits (Pro/Max plans only; absent until the first API response of a
+# session). used_percentage is 0-100, resets_at is Unix epoch SECONDS.
+rl_5h_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+rl_5h_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+rl_7d_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+rl_7d_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+
 # MCP servers — aggregate from global ~/.claude.json, project-scoped servers
 # in ~/.claude.json, and project/cwd .mcp.json files.
 # Only active (non-disabled, not project-disabled) servers are collected.
@@ -256,7 +263,7 @@ if [[ -n "$git_dir" ]]; then
   _git_dir_hash=$(printf '%s' "$git_dir" | cksum | cut -d' ' -f1)
   _git_cache_file="/tmp/nerdflair-git-${_git_dir_hash}"
   if [[ -f "$_git_cache_file" ]]; then
-    _cache_age=$(( $(date +%s) - $(stat -f %m "$_git_cache_file" 2>/dev/null || stat -c %Y "$_git_cache_file" 2>/dev/null || echo 0) ))
+    _cache_age=$(( $(date +%s) - $(stat -c %Y "$_git_cache_file" 2>/dev/null || stat -f %m "$_git_cache_file" 2>/dev/null || echo 0) ))
     (( _cache_age < _GIT_CACHE_TTL )) && _git_cache_fresh=true
   fi
   if [[ "$_git_cache_fresh" == "false" ]]; then
@@ -330,7 +337,7 @@ if (( ${#_multi_git_subs[@]} > 0 )); then
   _cwd_hash=$(printf '%s' "$cwd" | cksum | cut -d' ' -f1)
   _multi_cache_file="/tmp/nerdflair-multibranch-${_cwd_hash}"
   if [[ -f "$_multi_cache_file" ]]; then
-    _mcache_age=$(( $(date +%s) - $(stat -f %m "$_multi_cache_file" 2>/dev/null || stat -c %Y "$_multi_cache_file" 2>/dev/null || echo 0) ))
+    _mcache_age=$(( $(date +%s) - $(stat -c %Y "$_multi_cache_file" 2>/dev/null || stat -f %m "$_multi_cache_file" 2>/dev/null || echo 0) ))
     (( _mcache_age < _GIT_CACHE_TTL )) && _multi_cache_fresh=true
   fi
   if [[ "$_multi_cache_fresh" == "false" ]]; then
@@ -1005,6 +1012,77 @@ if [[ "$_SL_MODE" != "minimal" ]]; then
   _justified_row "$ROW_WIDTH" "$row1_left" "$row1_right"
 fi
 
+# ── ccusage bridge (stale-while-revalidate) ──────────────────────
+# MEASURED on this machine, not assumed:
+#   npm `ccusage` shim (Node spawns a Rust binary)  ~354ms  -- pure node startup
+#   native binary, internal cache MISS             ~1550ms  -- scans ~/.claude/projects
+#   native binary, internal cache HIT                ~1-2ms
+# A 1.5s call cannot sit in the hot path: Claude Code aborts an in-flight
+# statusline when the next trigger fires, so a slow script renders NOTHING.
+# So ccusage is never called synchronously. We print whatever is cached and,
+# when stale, fork a detached refresh whose result lands for a later render.
+# A cold cache simply shows nothing, consistent with nerdflair hiding absent data.
+#
+# Opt out with NERDFLAIR_CCUSAGE=0. Override the binary with NERDFLAIR_CCUSAGE_BIN.
+_CCUSAGE_TTL=${NERDFLAIR_CCUSAGE_TTL:-60}
+_ccusage_line=""
+
+# Prefer ccusage's per-platform Rust binary over the npm shim: the shim's only
+# job is to spawn it, and that costs a whole `node` startup we can skip.
+_CCUSAGE_BIN=""
+if [[ -n "${NERDFLAIR_CCUSAGE_BIN:-}" && -x "${NERDFLAIR_CCUSAGE_BIN}" ]]; then
+  _CCUSAGE_BIN="$NERDFLAIR_CCUSAGE_BIN"
+elif command -v ccusage &>/dev/null; then
+  _cu_root="$(dirname "$(readlink -f "$(command -v ccusage)")")/.."
+  for _cu_plat in linux-x64 linux-arm64 darwin-arm64 darwin-x64; do
+    _cu_try="$_cu_root/node_modules/@ccusage/ccusage-$_cu_plat/bin/ccusage"
+    [[ -x "$_cu_try" ]] && { _CCUSAGE_BIN="$_cu_try"; break; }
+  done
+  [[ -z "$_CCUSAGE_BIN" ]] && _CCUSAGE_BIN="$(command -v ccusage)"
+fi
+
+if [[ "${NERDFLAIR_CCUSAGE:-1}" != "0" && -n "$_CCUSAGE_BIN" ]]; then
+  _cu_cache="/tmp/nerdflair-ccusage-$(id -u)"
+  _cu_lock="${_cu_cache}.lock"
+  _cu_fresh=false
+  if [[ -f "$_cu_cache" ]]; then
+    _cu_age=$(( $(date +%s) - $(stat -c %Y "$_cu_cache" 2>/dev/null || stat -f %m "$_cu_cache" 2>/dev/null || echo 0) ))
+    (( _cu_age < _CCUSAGE_TTL )) && _cu_fresh=true
+    _ccusage_line=$(cat "$_cu_cache" 2>/dev/null || true)
+  fi
+  # A stale lock means a refresh died; clear it before deciding to spawn.
+  if [[ -d "$_cu_lock" ]]; then
+    _lk_age=$(( $(date +%s) - $(stat -c %Y "$_cu_lock" 2>/dev/null || stat -f %m "$_cu_lock" 2>/dev/null || echo 0) ))
+    (( _lk_age > 120 )) && rmdir "$_cu_lock" 2>/dev/null || true
+  fi
+  # mkdir is atomic, so it IS the lock. Without it, many parallel Claude Code
+  # sessions would each fork a 1.5s ccusage at the same moment.
+  if [[ "$_cu_fresh" == "false" ]] && mkdir "$_cu_lock" 2>/dev/null; then
+    (
+      trap 'rmdir "$_cu_lock" 2>/dev/null' EXIT
+      printf '%s' "$input" | "$_CCUSAGE_BIN" statusline --refresh-interval "$_CCUSAGE_TTL" \
+        > "${_cu_cache}.tmp" 2>/dev/null && mv -f "${_cu_cache}.tmp" "$_cu_cache"
+    ) &>/dev/null &
+    disown 2>/dev/null || true
+  fi
+fi
+
+# Format a Unix-epoch-seconds countdown as "3h12m" / "47m". Empty if past.
+_fmt_countdown() {
+  local _target="$1" _now _delta
+  [[ -z "$_target" ]] && return 0
+  _now=$(date +%s)
+  _delta=$(( _target - _now ))
+  (( _delta <= 0 )) && return 0
+  if (( _delta >= 172800 )); then
+    printf '%dd' $(( _delta / 86400 ))
+  elif (( _delta >= 3600 )); then
+    printf '%dh%02dm' $(( _delta / 3600 )) $(( (_delta % 3600) / 60 ))
+  else
+    printf '%dm' $(( _delta / 60 ))
+  fi
+}
+
 # ── Build time + cost segments for row 3 ─────────────────────────
 time_segment=""
 cost_icon=$(printf '\xef\x85\x95')       # U+F155 dollar
@@ -1034,6 +1112,66 @@ formatted_cost=$(printf '%.2f' "${cost:-0}")
 cost_segment=""
 if [[ "$formatted_cost" != "0.00" ]]; then
   cost_segment="${COST_COLOR}${cost_icon}${formatted_cost}${RESET}"
+fi
+
+# ── Burn rate ($/hr) ─────────────────────────────────────────────
+# Prefer ccusage's figure: it is the spend rate of the current 5-hour billing
+# BLOCK across every session, which is what you actually want to watch. Fall
+# back to this session's own average (cost / wall-clock) when ccusage is absent.
+# Suppressed under 2 minutes of wall clock -- a 10-second session divides into
+# an absurd hourly rate and the number is noise, not signal.
+burn_icon=$(printf '\xf3\xb1\x97\xb6')   # U+F15F6 chart-line-variant
+burn_segment=""
+_burn_val=""
+if [[ -n "$_ccusage_line" ]]; then
+  _burn_val=$(printf '%s' "$_ccusage_line" | grep -oE '\$[0-9]+\.[0-9]+/hr' | head -1 | tr -d '$' | sed 's|/hr||')
+fi
+if [[ -z "$_burn_val" && -n "$cost" && -n "$total_duration_ms" ]] \
+   && (( total_duration_ms > 120000 )) 2>/dev/null; then
+  _burn_val=$(awk "BEGIN {printf \"%.2f\", ${cost:-0} / (${total_duration_ms} / 3600000)}" 2>/dev/null)
+fi
+if [[ -n "$_burn_val" ]] && awk "BEGIN {exit (${_burn_val} > 0) ? 0 : 1}" 2>/dev/null; then
+  # Threshold colours: green under $20/hr, mustard to $50, alert above.
+  _burn_color="$COST_GREEN"
+  awk "BEGIN {exit (${_burn_val} >= 20) ? 0 : 1}" 2>/dev/null && _burn_color="$MUSTARD"
+  awk "BEGIN {exit (${_burn_val} >= 50) ? 0 : 1}" 2>/dev/null && _burn_color="$ALERT"
+  burn_segment="${_burn_color}${burn_icon} \$${_burn_val}/h${RESET}"
+fi
+
+# ── ccusage billing block: cost + time left in the 5-hour window ─
+block_icon=$(printf '\xef\x82\x94')       # U+F094 moon-o / block marker
+block_segment=""
+if [[ -n "$_ccusage_line" ]]; then
+  _blk_cost=$(printf '%s' "$_ccusage_line" | grep -oE '\$[0-9]+\.[0-9]+ block' | head -1 | awk '{print $1}')
+  _blk_left=$(printf '%s' "$_ccusage_line" | grep -oE '\(([0-9]+h )?[0-9]+m left\)' | head -1 | tr -d '()' | sed 's| left||; s| ||g')
+  if [[ -n "$_blk_cost" ]]; then
+    block_segment="${MAUVE}${block_icon} ${_blk_cost}${RESET}"
+    [[ -n "$_blk_left" ]] && block_segment+="${DIM} ${_blk_left}${RESET}"
+  fi
+fi
+
+# ── Plan rate limits (5h / 7d) ───────────────────────────────────
+# Straight from the Claude Code payload -- no subprocess, no network. Absent on
+# plans without rate limits, and until the first API response of the session.
+limits_segment=""
+_rl_part() {
+  local _pct="$1" _reset="$2" _label="$3" _color _cd
+  [[ -z "$_pct" ]] && return 0
+  _pct=${_pct%.*}
+  [[ -z "$_pct" ]] && return 0
+  _color="$DARK_GREEN"
+  (( _pct >= 60 )) && _color="$MUSTARD"
+  (( _pct >= 85 )) && _color="$ALERT"
+  printf '%s' "${_color}${_label}${_pct}%${RESET}"
+  _cd=$(_fmt_countdown "$_reset")
+  [[ -n "$_cd" ]] && printf '%s' "${DIM}/${_cd}${RESET}"
+}
+_rl5=$(_rl_part "$rl_5h_pct" "$rl_5h_reset" "5h ")
+_rl7=$(_rl_part "$rl_7d_pct" "$rl_7d_reset" "7d ")
+if [[ -n "$_rl5" || -n "$_rl7" ]]; then
+  limits_segment="$_rl5"
+  [[ -n "$_rl5" && -n "$_rl7" ]] && limits_segment+="${DIM} ${RESET}"
+  limits_segment+="$_rl7"
 fi
 
 # ── Row 3 (built here, printed last): left: mcp | right: time · cost
@@ -1079,15 +1217,31 @@ if [[ -n "$cost_segment" ]]; then
   if [[ -n "$_chime_segment" ]]; then
     row3_right+="${_chime_segment}${BULLET}"
   fi
+  if [[ -n "$limits_segment" ]]; then
+    row3_right+="${limits_segment}${BULLET}"
+  fi
   if [[ -n "$speed_segment" ]]; then
     row3_right+="${speed_segment}${BULLET}"
   fi
   if [[ -n "$time_segment" ]]; then
     row3_right+="${time_segment}${BULLET}"
   fi
+  if [[ -n "$burn_segment" ]]; then
+    row3_right+="${burn_segment}${BULLET}"
+  fi
+  if [[ -n "$block_segment" ]]; then
+    row3_right+="${block_segment}${BULLET}"
+  fi
   row3_right+="$cost_segment"
-elif [[ -n "$_chime_segment" ]]; then
-  row3_right+="$_chime_segment"
+else
+  # No cost yet (fresh session): still surface limits, which matter most early.
+  _pre=""
+  [[ -n "$_chime_segment" ]] && _pre="$_chime_segment"
+  if [[ -n "$limits_segment" ]]; then
+    [[ -n "$_pre" ]] && _pre+="$BULLET"
+    _pre+="$limits_segment"
+  fi
+  row3_right+="$_pre"
 fi
 
 _row3_right_len=$(_vis_len "$row3_right")
@@ -1124,7 +1278,8 @@ fi
 row3_left="\033[0m"
 if [[ -n "$_mcp_to_use" ]]; then
   row3_left+="${_mcp_to_use}"
-elif [[ -n "$time_segment" || -n "$cost_segment" || -n "$_chime_segment" || -n "$speed_segment" ]]; then
+elif [[ -n "$time_segment" || -n "$cost_segment" || -n "$_chime_segment" || -n "$speed_segment" \
+     || -n "$burn_segment" || -n "$block_segment" || -n "$limits_segment" ]]; then
   # No MCP servers — show cost/time/speed/chime on the left instead of right
   if [[ -n "$cost_segment" ]]; then
     row3_left+="$cost_segment"
@@ -1134,6 +1289,11 @@ elif [[ -n "$time_segment" || -n "$cost_segment" || -n "$_chime_segment" || -n "
     row3_left+="$time_segment"
     [[ -n "$speed_segment" ]] && row3_left+="${BULLET}${speed_segment}"
   fi
+  for _extra in "$burn_segment" "$block_segment" "$limits_segment"; do
+    [[ -z "$_extra" ]] && continue
+    [[ "$row3_left" != "\033[0m" ]] && row3_left+="${BULLET}"
+    row3_left+="$_extra"
+  done
   [[ -n "$_chime_segment" ]] && { [[ "$row3_left" != "\033[0m" ]] && row3_left+="${BULLET}"; row3_left+="$_chime_segment"; }
   # Clear right side to avoid duplication
   row3_right="\033[0m"
