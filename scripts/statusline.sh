@@ -256,7 +256,7 @@ if [[ -n "$git_dir" ]]; then
   _git_dir_hash=$(printf '%s' "$git_dir" | cksum | cut -d' ' -f1)
   _git_cache_file="/tmp/nerdflair-git-${_git_dir_hash}"
   if [[ -f "$_git_cache_file" ]]; then
-    _cache_age=$(( $(date +%s) - $(stat -f %m "$_git_cache_file" 2>/dev/null || stat -c %Y "$_git_cache_file" 2>/dev/null || echo 0) ))
+    _cache_age=$(( $(date +%s) - $(stat -c %Y "$_git_cache_file" 2>/dev/null || stat -f %m "$_git_cache_file" 2>/dev/null || echo 0) ))
     (( _cache_age < _GIT_CACHE_TTL )) && _git_cache_fresh=true
   fi
   if [[ "$_git_cache_fresh" == "false" ]]; then
@@ -330,7 +330,7 @@ if (( ${#_multi_git_subs[@]} > 0 )); then
   _cwd_hash=$(printf '%s' "$cwd" | cksum | cut -d' ' -f1)
   _multi_cache_file="/tmp/nerdflair-multibranch-${_cwd_hash}"
   if [[ -f "$_multi_cache_file" ]]; then
-    _mcache_age=$(( $(date +%s) - $(stat -f %m "$_multi_cache_file" 2>/dev/null || stat -c %Y "$_multi_cache_file" 2>/dev/null || echo 0) ))
+    _mcache_age=$(( $(date +%s) - $(stat -c %Y "$_multi_cache_file" 2>/dev/null || stat -f %m "$_multi_cache_file" 2>/dev/null || echo 0) ))
     (( _mcache_age < _GIT_CACHE_TTL )) && _multi_cache_fresh=true
   fi
   if [[ "$_multi_cache_fresh" == "false" ]]; then
