@@ -607,8 +607,11 @@ if [[ -n "$used_pct" && -n "$ctx_size" ]]; then
   # used_pct is the authoritative context fill percentage from Claude Code.
   # Derive total_used from it rather than cumulative token counts, which
   # measure something different (total tokens across all API calls).
-  ctx_total="$ctx_size"
-  pct="$used_pct"
+  # used_percentage is legal as a float -- the official docs' own example is
+  # 23.5 -- and bash has no float arithmetic, so the expansion below raised
+  # "syntax error: invalid arithmetic operator" and left the count at 0.
+  ctx_total="${ctx_size%%.*}"
+  pct="${used_pct%%.*}"
   total_used=$(( ctx_total * pct / 100 ))
 else
   # Fall back: parse last usage entry from transcript JSONL
