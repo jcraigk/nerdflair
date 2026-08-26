@@ -761,12 +761,16 @@ model_icon=$(printf '\xef\x94\x9b')  # U+F51B
 model_text="$model"
 style_suffix=""  # icon suffix appended after model_text in the segment
 if [[ -n "$output_style" && "$output_style" != "default" ]]; then
-  _style_lower="$(tr '[:upper:]' '[:lower:]' <<< "${output_style:0:1}")"
+  # Match on the full name, not the first letter: a custom style starting with
+  # e/l/p/c would otherwise render a built-in's icon. Unknown styles still fall
+  # back to their capitalized initial.
+  _style_lower="$(tr '[:upper:]' '[:lower:]' <<< "$output_style")"
   case "$_style_lower" in
-    e) style_suffix=" $(printf '\xef\x81\x9a')" ;;  # U+F05A for Explanatory
-    l) style_suffix=" $(printf '\xef\x81\x99')" ;;  # U+F059 for Learning
-    p) style_suffix=" $(printf '\xf3\xb0\xb7\xb8')" ;;  # U+F0DF8 for Proactive
-    *) style_suffix=" $(tr '[:lower:]' '[:upper:]' <<< "$_style_lower")" ;;
+    explanatory) style_suffix=" $(printf '\xef\x81\x9a')" ;;    # U+F05A nf-fa-info_circle
+    learning)    style_suffix=" $(printf '\xef\x81\x99')" ;;    # U+F059 nf-fa-question_circle
+    concise)     style_suffix=" $(printf '\xef\x81\x96')" ;;    # U+F056 nf-fa-minus_circle
+    proactive)   style_suffix=" $(printf '\xf3\xb0\xb7\xb8')" ;;  # U+F0DF8 nf-md-rocket_launch
+    *) style_suffix=" $(tr '[:lower:]' '[:upper:]' <<< "${_style_lower:0:1}")" ;;
   esac
 fi
 
