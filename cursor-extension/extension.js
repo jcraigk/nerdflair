@@ -43,7 +43,8 @@ function resolveAudioDir() {
 
 function writeState() {
   if (!audioDir) return;
-  const volume = getConfig().get('volume', 1.0);
+  // Clamp: a hand-edited setting above 1 or below 0 must not reach afplay/paplay.
+  const volume = Math.min(1, Math.max(0, Number(getConfig().get('volume', 1.0)) || 0));
   const state = { style: currentStyle, volume, audioDir };
   try {
     fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
@@ -114,7 +115,7 @@ function activate(context) {
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('nerdflair-chimes')) {
         const newAudioDir = resolveAudioDir();
-        if (newAudioDir) audioDir = newAudioDir;
+        audioDir = newAudioDir;  // also clears a stale dir when the setting is unset
         writeState();
         updateStatusBar();
       }
