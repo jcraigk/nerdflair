@@ -26,7 +26,7 @@ RENDERER="$SCRIPT_DIR/statusline.sh"
 # ── Configurable dummy values ────────────────────────────────────
 FOLDER="todos-app"
 BRANCH="feature/reminders"
-MODEL_ID="us.anthropic.claude-opus-4-8-v1"
+MODEL_ID="us.anthropic.claude-fable-5-1-v1"
 OUTPUT_STYLE="explanatory"
 SESSION_ID="screenshot-session-fixed-id-0001"
 COST_USD="12.83"
