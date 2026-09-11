@@ -370,6 +370,19 @@ test_renderer_accepts_fractional_used_percentage() {
   _teardown
 }
 
+# .mcp.json in a cloned repo is attacker-controlled; escape bytes in a server
+# name must never reach the terminal.
+test_renderer_strips_escape_bytes_from_mcp_names() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  printf '{"mcpServers":{"srv\\u001b[5mBLINK":{}}}' > "$FAKE_CWD/.mcp.json"
+  local raw
+  raw=$(_render "$state" "$(_make_input 42 5.00)")
+  assert_not_contains "blink escape not emitted" "$raw" $'\033[5m'
+  assert_contains "printable part of name still shown" "$(printf "%s" "$raw" | _strip_ansi)" "srv[5mBLINK"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on

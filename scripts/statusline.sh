@@ -33,7 +33,9 @@ _SL_LAST_SESSION="$NF_CUR_LAST_SESSION"
 # sequences (e.g. \033, \e, \x1b) into terminal control characters.
 # Applied to user-controlled values: branch names, directory names, MCP
 # server names, and model IDs.
-_sanitize() { printf '%s' "$1" | sed 's/\\//g'; }
+# Strip backslashes and every control byte (ESC, BEL, CR...) so names taken from
+# the filesystem or a repo .mcp.json cannot inject terminal escape sequences.
+_sanitize() { printf '%s' "$1" | LC_ALL=C tr -d '\\\000-\037\177'; }
 
 # ── Extract fields from Claude Code JSON ──────────────────────────
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // empty')
@@ -1097,6 +1099,7 @@ fi
 
 # Build chime style segment
 # Only show the resolved style name when on "random" and before any cost is incurred
+_chime_label=$(_sanitize "$_chime_label")
 _chime_segment=""
 if [[ -n "$_chime_label" ]]; then
   _show_label=false
