@@ -388,6 +388,20 @@ test_renderer_mcp_servers_listed_once() {
   _teardown
 }
 
+# Project .mcp.json servers count only once Claude Code has approved them.
+test_renderer_mcp_json_respects_approval() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  echo '{"mcpServers":{"alpha":{},"beta":{}}}' > "$FAKE_CWD/.mcp.json"
+  local p; p=$(cd "$FAKE_CWD" && pwd -P)
+  jq -n --arg p "$p" '{projects:{($p):{enabledMcpjsonServers:["alpha"]}}}' > "$FAKE_HOME/.claude.json"
+  local output
+  output=$(_render "$state" "$(_make_input 42 5.00)" | _strip_ansi)
+  assert_contains "approved server listed" "$output" "alpha"
+  assert_not_contains "unapproved server hidden" "$output" "beta"
+  _teardown
+}
+
 # Claude Code may send used_percentage as a float; bash arithmetic must not choke.
 test_renderer_accepts_fractional_used_percentage() {
   _setup

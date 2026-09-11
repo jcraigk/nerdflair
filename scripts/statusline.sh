@@ -124,6 +124,39 @@ _is_proj_disabled() {
   done
   return 1
 }
+# Project .mcp.json servers are only active once the user approves them in
+# Claude Code, recorded as enabledMcpjsonServers / disabledMcpjsonServers /
+# enableAllProjectMcpServers (per project in ~/.claude.json, or globally in
+# settings.json). With no approval data anywhere, list every server.
+_mcpjson_all=false
+_mcpjson_has_policy=false
+_mcpjson_enabled=()
+_mcpjson_disabled=()
+_read_mcpjson_policy() {  # $1 = json file, $2 = jq expression selecting the object
+  [[ -f "$1" ]] || return 0
+  local _line
+  while IFS= read -r _line; do
+    case "$_line" in
+      POLICY) _mcpjson_has_policy=true ;;
+      ALL)    _mcpjson_all=true ;;
+      EN:*)   _mcpjson_enabled+=("${_line#EN:}") ;;
+      DIS:*)  _mcpjson_disabled+=("${_line#DIS:}") ;;
+    esac
+  done < <(jq -r --arg p "${project_dir:-}" "$2"' | select(type == "object")
+    | (if (has("enableAllProjectMcpServers") or has("enabledMcpjsonServers") or has("disabledMcpjsonServers")) then "POLICY" else empty end),
+      (if .enableAllProjectMcpServers == true then "ALL" else empty end),
+      ((.enabledMcpjsonServers // [])[] | "EN:" + .),
+      ((.disabledMcpjsonServers // [])[] | "DIS:" + .)' "$1" 2>/dev/null)
+}
+_read_mcpjson_policy "$_claude_json" '.projects[$p]'
+_read_mcpjson_policy "$NF_SETTINGS_FILE" '.'
+_mcpjson_approved() {
+  local _n="$1" _e
+  for _e in ${_mcpjson_disabled[@]+"${_mcpjson_disabled[@]}"}; do [[ "$_e" == "$_n" ]] && return 1; done
+  [[ "$_mcpjson_has_policy" == "false" || "$_mcpjson_all" == "true" ]] && return 0
+  for _e in ${_mcpjson_enabled[@]+"${_mcpjson_enabled[@]}"}; do [[ "$_e" == "$_n" ]] && return 0; done
+  return 1
+}
 # cwd and project_dir usually name the same directory; -ef compares inodes so a
 # differently spelled path to the same .mcp.json is still read only once.
 _mcp_files=("$_claude_json" "${project_dir}/.mcp.json")
@@ -135,6 +168,9 @@ for mcp_file in "${_mcp_files[@]}"; do
     while IFS= read -r _name; do
       if [[ -n "$_name" ]]; then
         if [[ "$mcp_file" == "$_claude_json" ]] && _is_proj_disabled "$_name"; then
+          continue
+        fi
+        if [[ "$mcp_file" != "$_claude_json" ]] && ! _mcpjson_approved "$_name"; then
           continue
         fi
         mcp_names+=("$(_sanitize "$_name")")
