@@ -878,6 +878,18 @@ EOF
   _teardown
 }
 
+test_bell_suppresses_post_compaction_restart() {
+  _setup
+  cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF2'
+{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "off", "chime_sound": "Glass", "chime_volume": "0", "chime_style": "random", "chime_events": "SessionStart", "color": "vibrant"}
+EOF2
+  echo '{"session_id":"compacted-session","source":"compact"}' | HOME="$FAKE_HOME" bash "$BELL" SessionStart >/dev/null 2>&1 || true
+  local created="no"
+  [[ -f "$FAKE_HOME/.claude/nerdflair/sessions/compacted-session" ]] && created="yes"
+  assert_equals "compact restart does not start a new chime session" "$created" "no"
+  _teardown
+}
+
 test_bell_cleans_up_session_file_on_session_end() {
   _setup
   cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF'

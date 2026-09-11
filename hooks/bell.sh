@@ -53,17 +53,15 @@ fi
 _nf_valid_session_id "$_session_id" || _session_id=""
 
 # Suppress SessionStart for resumed sessions and post-compaction restarts.
-# Three checks:
-#   1. source == "resume" (explicit /resume command)
+# Two checks:
+#   1. source is "resume" (/resume) or "compact" (restart after compaction)
 #   2. session_id == last_session (same session already seen by statusline)
-#   3. PreCompact marker file exists (compaction just happened, SessionStart is a restart)
-_COMPACT_MARKER="$HOME/.claude/nerdflair/.pre-compact"
 if [[ "$EVENT" == "SessionStart" ]]; then
   _source=""
   if [[ -n "$_stdin_data" ]]; then
     _source=$(echo "$_stdin_data" | jq -r '.source // empty' 2>/dev/null || true)
   fi
-  if [[ "$_source" == "resume" ]]; then
+  if [[ "$_source" == "resume" || "$_source" == "compact" ]]; then
     exit 0
   fi
   if [[ -n "$_session_id" && -n "$NF_CUR_LAST_SESSION" ]]; then
@@ -71,17 +69,6 @@ if [[ "$EVENT" == "SessionStart" ]]; then
       exit 0
     fi
   fi
-  # Check PreCompact marker: if it exists, this SessionStart follows compaction
-  if [[ -f "$_COMPACT_MARKER" ]]; then
-    rm -f "$_COMPACT_MARKER"
-    exit 0
-  fi
-fi
-
-# On PreCompact, write a marker file so the subsequent SessionStart is suppressed
-if [[ "$EVENT" == "PreCompact" ]]; then
-  mkdir -p "$(dirname "$_COMPACT_MARKER")"
-  printf '%s' "$(date +%s)" > "$_COMPACT_MARKER"
 fi
 
 # ── Resolve chime style (per-session) ──
