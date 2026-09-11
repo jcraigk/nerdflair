@@ -196,8 +196,7 @@ while [[ $# -gt 0 ]]; do
         printf '{"chime":"%s"}\n' "$_cs_matched" > "$_cs_session_file"
       else
         # Update session file: overwrite chime
-        _cs_tmp="$_cs_session_file.tmp.$$"
-        jq --arg chime "$_cs_matched" '.chime = $chime' "$_cs_session_file" > "$_cs_tmp" && mv "$_cs_tmp" "$_cs_session_file"
+        _nf_jq_write "$_cs_session_file" --arg chime "$_cs_matched" '.chime = $chime' "$_cs_session_file"
       fi
 
       printf '%b✓ Session chime → %s%b (this session only)\n' "$NF_GREEN" "$_cs_matched" "$NF_RST"
@@ -305,23 +304,20 @@ while [[ $# -gt 0 ]]; do
           if [[ ! -f "$NF_SETTINGS_FILE" ]]; then
             echo '{}' > "$NF_SETTINGS_FILE"
           fi
-          _tmp="$NF_SETTINGS_FILE.tmp.$$"
-          jq --argjson verbs "$_verbs_json" '.spinnerVerbs = {"mode": "replace", "verbs": $verbs}' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+          _nf_jq_write "$NF_SETTINGS_FILE" --argjson verbs "$_verbs_json" '.spinnerVerbs = {"mode": "replace", "verbs": $verbs}' "$NF_SETTINGS_FILE"
           _nf_mark_spinners on
           printf '%b✓ Spinner verbs: on%b (%s verbs loaded). Restart Claude Code to apply.\n' "$NF_GREEN" "$NF_RST" "$_count"
         else
           # Restore backed-up spinnerVerbs, or remove entirely
           if [[ -f "$_backup_file" ]]; then
             _backup_json=$(cat "$_backup_file")
-            _tmp="$NF_SETTINGS_FILE.tmp.$$"
-            jq --argjson sv "$_backup_json" '.spinnerVerbs = $sv' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+            _nf_jq_write "$NF_SETTINGS_FILE" --argjson sv "$_backup_json" '.spinnerVerbs = $sv' "$NF_SETTINGS_FILE"
             rm "$_backup_file"
             _nf_mark_spinners off
             printf '%b✓ Spinner verbs: restored%b (previous verbs recovered from backup). Restart Claude Code to apply.\n' "$NF_GREEN" "$NF_RST"
           else
             if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null && _nf_spinners_are_ours; then
-              _tmp="$NF_SETTINGS_FILE.tmp.$$"
-              jq 'del(.spinnerVerbs)' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+              _nf_jq_write "$NF_SETTINGS_FILE" 'del(.spinnerVerbs)' "$NF_SETTINGS_FILE"
             fi
             _nf_mark_spinners off
             printf '%b✓ Spinner verbs: off%b (back to defaults). Restart Claude Code to apply.\n' "$NF_GREEN" "$NF_RST"
@@ -365,8 +361,7 @@ while [[ $# -gt 0 ]]; do
       if [[ ! -f "$NF_SETTINGS_FILE" ]]; then
         echo '{}' > "$NF_SETTINGS_FILE"
       fi
-      _tmp="$NF_SETTINGS_FILE.tmp.$$"
-      jq --arg cmd "$_sl_cmd" '.statusLine = {"type": "command", "command": $cmd}' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+      _nf_jq_write "$NF_SETTINGS_FILE" --arg cmd "$_sl_cmd" '.statusLine = {"type": "command", "command": $cmd}' "$NF_SETTINGS_FILE"
       printf '%b✓ statusLine configured in settings.json%b\n' "$NF_GREEN" "$NF_RST"
 
       # Refresh spinnerVerbs if nerdflair spinners were previously enabled
@@ -376,8 +371,7 @@ while [[ $# -gt 0 ]]; do
           if [[ -f "$_verbs_file" ]]; then
             _verbs_json=$(jq -R -s '[split("\n")[] | select(length > 0)]' < "$_verbs_file")
             _count=$(echo "$_verbs_json" | jq 'length')
-            _tmp="$NF_SETTINGS_FILE.tmp.$$"
-            jq --argjson verbs "$_verbs_json" '.spinnerVerbs = {"mode": "replace", "verbs": $verbs}' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+            _nf_jq_write "$NF_SETTINGS_FILE" --argjson verbs "$_verbs_json" '.spinnerVerbs = {"mode": "replace", "verbs": $verbs}' "$NF_SETTINGS_FILE"
             _nf_mark_spinners on
             printf '%b✓ Spinner verbs refreshed%b (%s verbs)\n' "$NF_GREEN" "$NF_RST" "$_count"
           fi
@@ -396,12 +390,10 @@ while [[ $# -gt 0 ]]; do
       _backup_file="$_nerdflair_dir/spinnerVerbs.backup.json"
       if [[ -f "$_backup_file" ]]; then
         _backup_json=$(cat "$_backup_file")
-        _tmp="$NF_SETTINGS_FILE.tmp.$$"
-        jq --argjson sv "$_backup_json" '.spinnerVerbs = $sv' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+        _nf_jq_write "$NF_SETTINGS_FILE" --argjson sv "$_backup_json" '.spinnerVerbs = $sv' "$NF_SETTINGS_FILE"
         printf '  %b✓%b Restored previous spinnerVerbs from backup\n' "$NF_GREEN" "$NF_RST"
       elif [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null && _nf_spinners_are_ours; then
-        _tmp="$NF_SETTINGS_FILE.tmp.$$"
-        jq 'del(.spinnerVerbs)' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+        _nf_jq_write "$NF_SETTINGS_FILE" 'del(.spinnerVerbs)' "$NF_SETTINGS_FILE"
         printf '  %b✓%b Removed spinnerVerbs from settings.json\n' "$NF_GREEN" "$NF_RST"
       else
         printf '  %b· No spinnerVerbs in settings.json%b\n' "$NF_DIM" "$NF_RST"
@@ -409,8 +401,7 @@ while [[ $# -gt 0 ]]; do
 
       # Remove statusLine from settings.json
       if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.statusLine' "$NF_SETTINGS_FILE" &>/dev/null; then
-        _tmp="$NF_SETTINGS_FILE.tmp.$$"
-        jq 'del(.statusLine)' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+        _nf_jq_write "$NF_SETTINGS_FILE" 'del(.statusLine)' "$NF_SETTINGS_FILE"
         printf '  %b✓%b Removed statusLine from settings.json\n' "$NF_GREEN" "$NF_RST"
       else
         printf '  %b· No statusLine in settings.json%b\n' "$NF_DIM" "$NF_RST"

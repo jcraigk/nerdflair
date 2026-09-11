@@ -156,6 +156,21 @@ _nf_read_state() {
   NF_CUR_CHIME_VOLUME="${NF_CUR_CHIME_VOLUME:-$NF_DEFAULT_CHIME_VOLUME}"
 }
 
+# ── Atomic JSON write ────────────────────────────────────────────
+# Usage: _nf_jq_write <target> <jq args...>
+# Runs jq into a temp file and renames it over <target>. On jq failure the
+# target is untouched and the temp file is removed.
+_nf_jq_write() {
+  local _target="$1"; shift
+  local _tmp="${_target}.tmp.$$"
+  if jq "$@" > "$_tmp"; then
+    mv "$_tmp" "$_target"
+  else
+    rm -f "$_tmp"
+    return 1
+  fi
+}
+
 # ── Write state file atomically using jq ─────────────────────────
 # Usage: _nf_write_state
 # Writes NF_CUR_* variables to state.json, preserving chime_recent_styles.
@@ -168,8 +183,7 @@ _nf_write_state() {
     recent_styles=$(jq -c '.chime_recent_styles // []' "$NF_STATE_FILE" 2>/dev/null || echo "[]")
   fi
 
-  local _tmp="${NF_STATE_FILE}.tmp.$$"
-  jq -n \
+  _nf_jq_write "$NF_STATE_FILE" -n \
     --arg mode "$NF_CUR_MODE" \
     --arg width "$NF_CUR_WIDTH" \
     --arg terminal_bell "$NF_CUR_TERMINAL_BELL" \
@@ -193,7 +207,7 @@ _nf_write_state() {
       last_session: $last_session,
       spinner_verbs: $spinner_verbs,
       chime_recent_styles: $recent
-    }' > "$_tmp" && mv "$_tmp" "$NF_STATE_FILE"
+    }'
 }
 
 # ── Update a single field in state.json atomically ───────────────
@@ -206,8 +220,7 @@ _nf_update_field() {
     _nf_read_state  # populate NF_CUR_* with defaults
     _nf_write_state
   fi
-  local _tmp="${NF_STATE_FILE}.tmp.$$"
-  jq --arg v "$value" ".$field = \$v" "$NF_STATE_FILE" > "$_tmp" && mv "$_tmp" "$NF_STATE_FILE"
+  _nf_jq_write "$NF_STATE_FILE" --arg f "$field" --arg v "$value" '.[$f] = $v' "$NF_STATE_FILE"
 }
 
 # ── Play audio file (cross-platform) ──────────────────────────────
@@ -236,6 +249,5 @@ _nf_update_recent_styles() {
     _nf_read_state
     _nf_write_state
   fi
-  local _tmp="${NF_STATE_FILE}.tmp.$$"
-  jq --arg csv "$styles_csv" '.chime_recent_styles = ($csv | split(","))' "$NF_STATE_FILE" > "$_tmp" && mv "$_tmp" "$NF_STATE_FILE"
+  _nf_jq_write "$NF_STATE_FILE" --arg csv "$styles_csv" '.chime_recent_styles = ($csv | split(","))' "$NF_STATE_FILE"
 }

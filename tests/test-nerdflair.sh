@@ -640,6 +640,17 @@ test_config_spinner_verbs_disable_keeps_user_verbs() {
   _teardown
 }
 
+test_config_failed_settings_write_leaves_no_temp_file() {
+  _setup
+  echo '{ not json' > "$FAKE_HOME/.claude/settings.json"
+  local rc=0
+  _configure spinner-verbs enable >/dev/null 2>&1 || rc=$?
+  assert_exit_code "enable fails on corrupt settings" "1" "$rc"
+  assert_equals "settings.json left as it was" "$(cat "$FAKE_HOME/.claude/settings.json")" "{ not json"
+  assert_equals "no temp files left behind" "$(ls "$FAKE_HOME/.claude/" | grep -c '\.tmp\.' || true)" "0"
+  _teardown
+}
+
 test_config_layout_cycle() {
   _setup
   # Start at full, cycle to compact
