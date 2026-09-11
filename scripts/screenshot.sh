@@ -13,7 +13,7 @@
 #
 # Usage:
 #   ./scripts/screenshot.sh              # render to terminal
-#   ./scripts/screenshot.sh > out.txt    # capture with ANSI codes
+#   ./scripts/screenshot.sh > out.txt    # capture with ANSI codes (out.txt is gitignored)
 #
 # The script creates a throwaway git repo in /tmp so the real renderer
 # picks up the folder name, branch, and diff stats we want.
@@ -60,7 +60,7 @@ mkdir -p "$FAKE_CWD"
   for j in $(seq 1 "$LINES_REMOVED"); do
     echo "original line $j" >> "file1.txt"
   done
-  # file2 and file3 start empty (will gain new lines → pure additions)
+  # file2 and file3 start empty (they only gain lines, so pure additions)
   touch file2.txt file3.txt
   git add -A
   git commit -q -m "initial"
@@ -68,7 +68,7 @@ mkdir -p "$FAKE_CWD"
   # Switch to feature branch
   git checkout -q -b "$BRANCH"
 
-  # Dirty state: erase file1 → all LINES_REMOVED counted as removals
+  # Dirty state: erase file1 so all LINES_REMOVED count as removals
   > file1.txt
   # Spread LINES_ADDED across all 3 files
   lines_per_file=$(( LINES_ADDED / DIRTY_FILE_COUNT ))
@@ -94,12 +94,9 @@ render_variation() {
   local color="$2"
   local pct_override="${3:-}"
   local label="$4"
-  local bar_only="${5:-false}"
-  local cost_override="${6:-}"
-  local duration_override="${7:-}"
 
-  # Section header: centered label (skip for bar_only gallery entries)
-  if [[ "$bar_only" != "true" && -n "$label" ]]; then
+  # Section header: centered label
+  if [[ -n "$label" ]]; then
     local LABEL_COLOR='\033[1;38;2;35;38;42m'
     local HEADER_RESET='\033[0m'
     local cols
@@ -110,13 +107,13 @@ render_variation() {
     local spaces
     spaces=$(printf '%*s' "$pad" '')
     printf '\n\n%s%b%s%b\n' "$spaces" "$LABEL_COLOR" "$label" "$HEADER_RESET"
-  elif [[ "$bar_only" != "true" ]]; then
+  else
     printf '\n\n'
   fi
 
   # Write state file into the sandboxed HOME
   cat > "$FAKE_HOME/.claude/nerdflair/state.json" << STATEEOF
-{"mode": "$mode", "width": "auto", "flair": true, "bell": "both", "bell_sound": "Glass", "context": "full", "color": "$color", "last_tokens": 80000, "last_session": "$SESSION_ID"}
+{"mode": "$mode", "width": "auto", "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "$color", "last_session": "$SESSION_ID"}
 STATEEOF
 
   # Write session file as JSON (chime style)
@@ -127,9 +124,8 @@ STATEEOF
   local json_input json_pct json_tokens json_cost json_api_ms
   json_pct="${pct_override:-$CONTEXT_USED_PCT}"
   json_tokens=$(( CTX_WINDOW_SIZE * json_pct / 100 ))
-  json_cost="${cost_override:-$COST_USD}"
-  # Scale API duration proportionally to cost for visual consistency
-  json_api_ms="${duration_override:-$API_DURATION_MS}"
+  json_cost="$COST_USD"
+  json_api_ms="$API_DURATION_MS"
   json_input=$(cat << JSONEOF
 {
   "workspace": {
@@ -165,30 +161,21 @@ STATEEOF
 JSONEOF
   )
 
-  # Run renderer in a subshell with overridden HOME so it reads our state file
-  # bar_only: strip everything except the progress bar line (for gallery)
-  if [[ "$bar_only" == "true" ]]; then
-    # Compact mode output: row1\nbar  — strip row 1, keep just the bar.
-    # _render_bar's leading \n becomes the first line, so tail -n +2 gives
-    # just the bar content. We print our own \n before it so bars stack.
-    printf '\n'
-    printf '%s' "$json_input" | HOME="$FAKE_HOME" bash "$RENDERER" | tail -n +2
-  else
-    printf '%s' "$json_input" | HOME="$FAKE_HOME" bash "$RENDERER"
-  fi
+  # Run the renderer with an overridden HOME so it reads our state file
+  printf '%s' "$json_input" | HOME="$FAKE_HOME" bash "$RENDERER"
 }
 
 # ── (1) Full layout × 3 color modes ─────────────────────────────
-render_variation "full" "default" "" "Color: vibrant"
+render_variation "full" "vibrant" "" "Color: vibrant"
 
 render_variation "full" "muted"   "" "Color: muted"
 
 render_variation "full" "mono"    "" "Color: mono"
 
 # ── (2) Compact layout ───────────────────────────────────────────
-render_variation "compact" "default" "" "Layout: compact"
+render_variation "compact" "vibrant" "" "Layout: compact"
 
 # ── (3) Minimal layout ──────────────────────────────────────────
-render_variation "minimal" "default" "" "Layout: minimal"
+render_variation "minimal" "vibrant" "" "Layout: minimal"
 
 printf '\n\n'
