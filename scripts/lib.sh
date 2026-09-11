@@ -156,6 +156,24 @@ _nf_read_state() {
   NF_CUR_CHIME_VOLUME="${NF_CUR_CHIME_VOLUME:-$NF_DEFAULT_CHIME_VOLUME}"
 }
 
+# ── State file lock ──────────────────────────────────────────────
+# statusline.sh, bell.sh and nerdflair.sh can all write state.json within
+# milliseconds of each other on session start. mkdir is atomic and works on
+# macOS bash 3.2, which has no flock. Best effort only: wait up to ~0.5s,
+# break a lock older than 5s, and never block a render indefinitely.
+_NF_STATE_LOCK="${NF_STATE_FILE}.lock"
+_nf_state_lock() {
+  local _i _age
+  for (( _i=0; _i<50; _i++ )); do
+    mkdir "$_NF_STATE_LOCK" 2>/dev/null && return 0
+    _age=$(( $(date +%s) - $(stat -f %m "$_NF_STATE_LOCK" 2>/dev/null || stat -c %Y "$_NF_STATE_LOCK" 2>/dev/null || echo 0) ))
+    (( _age > 5 )) && rmdir "$_NF_STATE_LOCK" 2>/dev/null
+    sleep 0.01
+  done
+  return 0
+}
+_nf_state_unlock() { rmdir "$_NF_STATE_LOCK" 2>/dev/null || true; }
+
 # ── Atomic JSON write ────────────────────────────────────────────
 # Usage: _nf_jq_write <target> <jq args...>
 # Runs jq into a temp file and renames it over <target>. On jq failure the
@@ -176,6 +194,13 @@ _nf_jq_write() {
 # Writes NF_CUR_* variables to state.json, preserving chime_recent_styles.
 _nf_write_state() {
   mkdir -p "$(dirname "$NF_STATE_FILE")"
+  local _rc=0
+  _nf_state_lock
+  _nf_write_state_unlocked || _rc=$?
+  _nf_state_unlock
+  return $_rc
+}
+_nf_write_state_unlocked() {
 
   # Preserve chime_recent_styles from existing file
   local recent_styles="[]"
@@ -214,13 +239,16 @@ _nf_write_state() {
 # Usage: _nf_update_field <field> <value>
 # Creates the file with defaults if it doesn't exist.
 _nf_update_field() {
-  local field="$1" value="$2"
+  local field="$1" value="$2" _rc=0
   mkdir -p "$(dirname "$NF_STATE_FILE")"
+  _nf_state_lock
   if [[ ! -f "$NF_STATE_FILE" ]]; then
     _nf_read_state  # populate NF_CUR_* with defaults
-    _nf_write_state
+    _nf_write_state_unlocked
   fi
-  _nf_jq_write "$NF_STATE_FILE" --arg f "$field" --arg v "$value" '.[$f] = $v' "$NF_STATE_FILE"
+  _nf_jq_write "$NF_STATE_FILE" --arg f "$field" --arg v "$value" '.[$f] = $v' "$NF_STATE_FILE" || _rc=$?
+  _nf_state_unlock
+  return $_rc
 }
 
 # ── Play audio file (cross-platform) ──────────────────────────────
@@ -243,11 +271,14 @@ _nf_play_audio() {
 # ── Update chime_recent_styles array ─────────────────────────────
 # Usage: _nf_update_recent_styles <comma_separated_styles>
 _nf_update_recent_styles() {
-  local styles_csv="$1"
+  local styles_csv="$1" _rc=0
   mkdir -p "$(dirname "$NF_STATE_FILE")"
+  _nf_state_lock
   if [[ ! -f "$NF_STATE_FILE" ]]; then
     _nf_read_state
-    _nf_write_state
+    _nf_write_state_unlocked
   fi
-  _nf_jq_write "$NF_STATE_FILE" --arg csv "$styles_csv" '.chime_recent_styles = ($csv | split(","))' "$NF_STATE_FILE"
+  _nf_jq_write "$NF_STATE_FILE" --arg csv "$styles_csv" '.chime_recent_styles = ($csv | split(","))' "$NF_STATE_FILE" || _rc=$?
+  _nf_state_unlock
+  return $_rc
 }

@@ -42,6 +42,23 @@ _setup() {
   ) >/dev/null 2>&1
 }
 
+# Writers use a mkdir lock (no flock on macOS bash 3.2). It must never hang:
+# a stale lock is broken, and a held lock is waited on briefly then bypassed.
+test_config_state_lock_is_never_fatal() {
+  _setup
+  _configure layout full >/dev/null 2>&1
+  mkdir -p "$FAKE_HOME/.claude/nerdflair/state.json.lock"
+  touch -t 202001010000 "$FAKE_HOME/.claude/nerdflair/state.json.lock"
+  _configure layout compact >/dev/null 2>&1
+  assert_equals "stale lock is broken" "$(_state_field mode)" "compact"
+  local gone="yes"; [[ -d "$FAKE_HOME/.claude/nerdflair/state.json.lock" ]] && gone="no"
+  assert_equals "lock released after write" "$gone" "yes"
+  mkdir -p "$FAKE_HOME/.claude/nerdflair/state.json.lock"
+  _configure layout minimal >/dev/null 2>&1
+  assert_equals "fresh held lock is bypassed after a short wait" "$(_state_field mode)" "minimal"
+  _teardown
+}
+
 # Exercise the empty-bar (logo) and full-bar paths, which most tests skip.
 test_renderer_bar_at_zero_and_full() {
   _setup
