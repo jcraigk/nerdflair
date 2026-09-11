@@ -95,12 +95,13 @@ _nf_read_state() {
       .audio_style // "",
       .audio_events // "",
       .bell_volume // ""
-    ] | @tsv' "$NF_STATE_FILE" 2>/dev/null) || {
+    ] | map(tostring) | join("\u001f")' "$NF_STATE_FILE" 2>/dev/null) || {
       printf "nerdflair: %s is not valid JSON; using defaults\n" "$NF_STATE_FILE" >&2
       _json=""
     }
 
-    IFS=$'\t' read -r \
+    # Unit separator, not tab: tab is IFS whitespace and collapses empty fields.
+    IFS=$'\x1f' read -r \
       NF_CUR_MODE NF_CUR_WIDTH NF_CUR_FLAIR NF_CUR_COLOR \
       NF_CUR_TERMINAL_BELL NF_CUR_CHIME_SOUND NF_CUR_CHIME_STYLE \
       NF_CUR_CHIME_EVENTS NF_CUR_CHIME_VOLUME NF_CUR_LAST_SESSION \

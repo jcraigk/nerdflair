@@ -422,6 +422,20 @@ test_renderer_rows_match_columns_in_any_locale() {
   _teardown
 }
 
+# Rewriting state.json on every render races with the configurator's writes.
+test_renderer_does_not_rewrite_state_when_session_unchanged() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  _render "$state" "$(_make_input 42 5.00)" >/dev/null
+  local before after
+  before=$(stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json")
+  sleep 1
+  _make_input 42 5.00 | HOME="$FAKE_HOME" bash "$RENDERER" >/dev/null
+  after=$(stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json")
+  assert_equals "state file untouched on second render" "$before" "$after"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
@@ -781,6 +795,18 @@ test_config_corrupt_state_warns_instead_of_dying_silently() {
   _configure info >/dev/null 2>"$err_file" || rc=$?
   assert_exit_code "info survives corrupt state" "0" "$rc"
   assert_contains "warns about invalid JSON" "$(cat "$err_file")" "not valid JSON"
+  _teardown
+}
+
+# The state reader joins 14 fields; an empty one (here chime_sound) must not
+# shift every later field into the wrong variable.
+test_config_reads_state_correctly_with_empty_fields() {
+  _setup
+  echo '{"mode": "compact", "chime_style": "BalladPiano", "chime_volume": "0.25"}' > "$FAKE_HOME/.claude/nerdflair/state.json"
+  local output
+  output=$(_configure info 2>/dev/null | _strip_ansi)
+  assert_contains "mode read" "$output" "compact"
+  assert_contains "chime style read from correct field" "$output" "25% (BalladPiano)"
   _teardown
 }
 

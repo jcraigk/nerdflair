@@ -699,7 +699,7 @@ fi
 # Persist last_session to shared state file (used by bell.sh to suppress
 # duplicate SessionStart on compaction). Uses _nf_update_field for atomic
 # jq-based update, avoiding the fragile sed-chain approach.
-if [[ -n "$session_id" ]]; then
+if [[ -n "$session_id" && "$session_id" != "$_SL_LAST_SESSION" ]]; then
   _nf_update_field "last_session" "$session_id"
 fi
 
