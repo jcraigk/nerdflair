@@ -21,6 +21,16 @@ NF_DEFAULT_CHIME_VOLUME="1"
 NF_ALL_CHIME_EVENTS="Notification PermissionRequest PreCompact SessionEnd SessionStart Stop UserPromptSubmit"
 NF_VALID_MODES="full compact minimal"
 
+# Exact-match check against NF_VALID_MODES (never treat user input as a regex).
+_nf_valid_mode() {
+  local m
+  for m in $NF_VALID_MODES; do [[ "$1" == "$m" ]] && return 0; done
+  return 1
+}
+
+# Lowercase without ${var,,}, which bash 3.2 (macOS /bin/bash) lacks.
+_nf_lower() { printf "%s" "$1" | tr "[:upper:]" "[:lower:]"; }
+
 # ── ANSI colors (shared across scripts) ──────────────────────────
 NF_CYAN='\033[38;2;86;182;194m'
 NF_GREEN='\033[38;2;152;195;121m'

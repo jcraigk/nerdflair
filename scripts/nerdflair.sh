@@ -66,7 +66,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     layout)
       if [[ -n "${2:-}" && "${2:-}" != -* ]]; then
-        if ! echo "$NF_VALID_MODES" | grep -qw "$2"; then
+        if ! _nf_valid_mode "$2"; then
           printf '%b✗ Unknown layout "%s"%b\n' "$NF_RED" "$2" "$NF_RST"
           printf '  Valid layouts: %s\n' "$NF_VALID_MODES"
           exit 1
@@ -168,7 +168,7 @@ while [[ $# -gt 0 ]]; do
       # Validate style name
       _cs_matched=""
       for s in "${_cs_styles[@]}"; do
-        if [[ "${s,,}" == "${_cs_target,,}" ]]; then
+        if [[ "$(_nf_lower "$s")" == "$(_nf_lower "$_cs_target")" ]]; then
           _cs_matched="$s"
           break
         fi
@@ -434,7 +434,7 @@ while [[ $# -gt 0 ]]; do
     *)
       # Treat as layout mode for backwards compat
       if [[ -z "$next_mode" ]]; then
-        if ! echo "$NF_VALID_MODES" | grep -qw "$1"; then
+        if ! _nf_valid_mode "$1"; then
           printf '%b✗ Unknown command "%s"%b\n' "$NF_RED" "$1" "$NF_RST"
           printf '  Commands: chime-events, chime-session, chime-style, chime-volume,\n'
           printf '            color-palette, layout, spinner-verbs, terminal-bell, uninstall, width\n'
@@ -453,6 +453,7 @@ if [[ "$show_info" == "true" ]]; then
     full)    mode_desc="3 rows -- folder/branch, progress bar, mcp/cost" ;;
     compact) mode_desc="2 rows -- folder/branch, progress bar (cost in bar)" ;;
     minimal) mode_desc="1 row  -- progress bar only" ;;
+    *)       mode_desc="unknown layout" ;;
   esac
 
   printf '%bStatusline: %s%b (%s)' "$NF_CYAN" "$current_mode" "$NF_RST" "$mode_desc"
@@ -519,7 +520,7 @@ next_chime_style="$current_chime_style"
 if [[ -n "$set_chime_style" ]]; then
   _matched=""
   for s in "${_available_styles[@]}"; do
-    if [[ "${s,,}" == "${set_chime_style,,}" ]]; then
+    if [[ "$(_nf_lower "$s")" == "$(_nf_lower "$set_chime_style")" ]]; then
       _matched="$s"
       break
     fi
@@ -633,6 +634,7 @@ case "$next_mode" in
   full)    mode_desc="3 rows -- folder/branch, progress bar, mcp/cost" ;;
   compact) mode_desc="2 rows -- folder/branch, progress bar (cost in bar)" ;;
   minimal) mode_desc="1 row  -- progress bar only" ;;
+  *)       mode_desc="unknown layout" ;;
 esac
 
 printf '%b⟳ Statusline → %s%b (%s)' "$NF_CYAN" "$next_mode" "$NF_RST" "$mode_desc"

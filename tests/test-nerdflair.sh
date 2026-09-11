@@ -675,6 +675,27 @@ test_config_invalid_command_fails() {
   _teardown
 }
 
+# ${var,,} is bash 4 only; the plugin must run on macOS /bin/bash 3.2.
+test_config_chime_style_matches_case_insensitively() {
+  _setup
+  _configure layout full >/dev/null 2>&1
+  local err_file="$TMPDIR_ROOT/err"
+  HOME="$FAKE_HOME" /bin/bash "$CONFIGURATOR" chime-style balladpiano >/dev/null 2>"$err_file" || true
+  assert_equals "chime-style has no stderr on bash 3.2" "" "$(cat "$err_file")"
+  assert_equals "chime-style resolves canonical name" "$(_state_field "chime_style")" "BalladPiano"
+  _teardown
+}
+
+test_config_layout_rejects_regex_like_argument() {
+  _setup
+  _configure layout full >/dev/null 2>&1
+  local rc=0
+  _configure layout f.ll >/dev/null 2>&1 || rc=$?
+  assert_exit_code "regex-like layout rejected" "1" "$rc"
+  assert_equals "layout unchanged after bad arg" "$(_state_field "mode")" "full"
+  _teardown
+}
+
 test_config_legacy_default_color_migrated() {
   _setup
   # Write state with old "default" color value
