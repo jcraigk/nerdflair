@@ -334,7 +334,7 @@ test_renderer_poisoned_git_cache_is_inert() {
   mkdir -p "$FAKE_HOME/.claude/nerdflair/cache"
   local hash
   hash=$(printf '%s' "$FAKE_CWD" | cksum | cut -d' ' -f1)
-  printf 'a[$(touch %s/pwned)]\t0\t0\tmain\t\t0' "$TMPDIR_ROOT" > "$FAKE_HOME/.claude/nerdflair/cache/git-$hash"
+  printf 'a[$(touch %s/pwned)]\n0\n0\nmain\n0' "$TMPDIR_ROOT" > "$FAKE_HOME/.claude/nerdflair/cache/git-$hash"
   local output
   output=$(_render "$state" "$(_make_input 42 5.00)" 2>/dev/null | _strip_ansi)
   local executed="no"
@@ -433,6 +433,19 @@ test_renderer_does_not_rewrite_state_when_session_unchanged() {
   _make_input 42 5.00 | HOME="$FAKE_HOME" bash "$RENDERER" >/dev/null
   after=$(stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json")
   assert_equals "state file untouched on second render" "$before" "$after"
+  _teardown
+}
+
+# A linked worktree in a repo with no origin remote must still get the tree icon.
+test_renderer_worktree_icon_without_remote() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  (cd "$FAKE_CWD" && git worktree add -q "$TMPDIR_ROOT/wt" -b wt-branch) >/dev/null 2>&1
+  local input output
+  input=$(_make_input 42 5.00 | sed "s|$FAKE_CWD|$TMPDIR_ROOT/wt|g")
+  echo "$state" > "$FAKE_HOME/.claude/nerdflair/state.json"
+  output=$(printf '%s' "$input" | HOME="$FAKE_HOME" bash "$RENDERER" | _strip_ansi)
+  assert_contains "tree icon on worktree folder" "$output" $'\xef\x86\xbb wt'
   _teardown
 }
 

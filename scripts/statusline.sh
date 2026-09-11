@@ -328,12 +328,12 @@ if [[ -n "$git_dir" ]]; then
     if [[ "$(git rev-parse --git-common-dir 2>/dev/null)" != "$(git rev-parse --git-dir 2>/dev/null)" ]]; then
       _gc_worktree=1
     fi
-    # Remote URL for clickable links (convert SSH → HTTPS)
-    _gc_remote=$(git remote get-url origin 2>/dev/null || true)
-    _gc_remote=$(printf '%s' "$_gc_remote" | sed 's|^git@github\.com:|https://github.com/|' | sed 's|^git@\([^:]*\):|https://\1/|' | sed 's|\.git$||')
-    printf '%s\t%s\t%s\t%s\t%s\t%s' "$_gc_dirty" "$_gc_added" "$_gc_removed" "$_gc_branch" "$_gc_remote" "$_gc_worktree" > "$_git_cache_file"
+    # One field per line: a tab-delimited read would collapse empty fields and
+    # shift later ones (e.g. an empty branch swallowing the worktree flag).
+    printf '%s\n%s\n%s\n%s\n%s\n' "$_gc_dirty" "$_gc_added" "$_gc_removed" "$_gc_branch" "$_gc_worktree" > "$_git_cache_file"
   fi
-  IFS=$'\t' read -r _gc_dirty _gc_added _gc_removed _gc_branch _gc_remote _gc_worktree < "$_git_cache_file"
+  { IFS= read -r _gc_dirty; IFS= read -r _gc_added; IFS= read -r _gc_removed
+    IFS= read -r _gc_branch; IFS= read -r _gc_worktree; } < "$_git_cache_file"
   _gc_dirty=$(_int_or_zero "${_gc_dirty:-0}")
   _gc_added=$(_int_or_zero "${_gc_added:-0}")
   _gc_removed=$(_int_or_zero "${_gc_removed:-0}")
