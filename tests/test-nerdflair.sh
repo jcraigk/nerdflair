@@ -393,6 +393,16 @@ test_renderer_mcp_name_star_is_not_glob_expanded() {
   _teardown
 }
 
+test_renderer_non_numeric_chime_volume_does_not_error() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1)", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  local err_file="$TMPDIR_ROOT/err"
+  echo "$state" > "$FAKE_HOME/.claude/nerdflair/state.json"
+  _make_input 42 5.00 | HOME="$FAKE_HOME" bash "$RENDERER" >/dev/null 2>"$err_file"
+  assert_equals "no awk syntax error from state value" "" "$(cat "$err_file")"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on

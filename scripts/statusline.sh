@@ -80,6 +80,7 @@ effort_level=$(echo "$input" | jq -r '.effort.level // empty')
 thinking_enabled=$(echo "$input" | jq -r '.thinking.enabled // empty')
 fast_mode=$(echo "$input" | jq -r '.fast_mode // empty')
 session_id=$(echo "$input" | jq -r '.session_id // empty')
+_nf_valid_session_id "$session_id" || session_id=""
 # Context window
 used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 input_tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
@@ -1083,7 +1084,7 @@ row3_right="\033[0m"
 
 # Always resolve chime style label for display
 _chime_label=""
-if awk "BEGIN {exit (${_SL_CHIME_VOLUME:-1} > 0) ? 0 : 1}"; then
+if awk -v v="${_SL_CHIME_VOLUME:-1}" 'BEGIN {exit (v > 0) ? 0 : 1}'; then
   # Use cached chime value from session JSON (read earlier)
   _session_resolved="$_session_chime"
   if [[ -n "$_session_resolved" && "$_session_resolved" != "random" ]]; then
@@ -1107,7 +1108,7 @@ if [[ -n "$_chime_label" ]]; then
     _show_label=true
   fi
   _vol_icon=$(printf '\xef\x80\xa8')  # U+F028  volume icon
-  _vol_pct=$(awk "BEGIN {printf \"%g\", ${_SL_CHIME_VOLUME:-1} * 100}")
+  _vol_pct=$(awk -v v="${_SL_CHIME_VOLUME:-1}" 'BEGIN {printf "%g", v * 100}')
   if [[ "$_show_label" == "true" ]]; then
     if [[ "$_vol_pct" != "100" ]]; then
       _chime_segment="${MAUVE}${_vol_icon}  ${_chime_label} ${_vol_pct}%${RESET}"
@@ -1715,7 +1716,7 @@ if [[ "$_SL_MODE" != "minimal" ]]; then
   _compact_mark=80
   # In compact mode, show cost right-aligned inside the bar's empty area
   _bell_icon=""
-  if awk "BEGIN {exit (${_SL_CHIME_VOLUME:-1} <= 0) ? 0 : 1}"; then
+  if awk -v v="${_SL_CHIME_VOLUME:-1}" 'BEGIN {exit (v <= 0) ? 0 : 1}'; then
     _bell_icon=$(printf '\xf3\xb0\xe5\xa9')  # U+F0969 speaker-off
   fi
 
