@@ -295,6 +295,28 @@ test_renderer_shows_cost() {
   _teardown
 }
 
+# Claude Code spawns the statusline with a minimal environment (no LANG), so
+# number grouping must not depend on the locale. Run these under LC_ALL=C.
+test_renderer_cost_has_thousands_separator() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  local output
+  output=$(LC_ALL=C _render "$state" "$(_make_input 42 1224.92)" | _strip_ansi)
+  assert_contains "cost with comma" "$output" '1,224.92'
+  _teardown
+}
+
+test_renderer_lines_added_has_thousands_separator() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  # Fixture already has 1 added line; append 1662 more for 1663 total
+  (cd "$FAKE_CWD" && seq 1 1662 >> file.txt)
+  local output
+  output=$(LC_ALL=C _render "$state" "$(_make_input 42 5.00)" | _strip_ansi)
+  assert_contains "lines added with comma" "$output" '+1,663'
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on

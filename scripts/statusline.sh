@@ -244,7 +244,15 @@ fi
 
 # ── Helper: format number with commas ──────────────────────────
 _fmt_num() {
-  printf "%'d" "$1" 2>/dev/null || printf "%d" "$1"
+  # Locale-independent thousands grouping. printf "%'d" is a no-op under the
+  # C/POSIX locale that Claude Code spawns hooks with, so group by hand.
+  local n="$1" sign="" out=""
+  [[ "$n" == -* ]] && { sign="-"; n="${n#-}"; }
+  while (( ${#n} > 3 )); do
+    out=",${n: -3}${out}"
+    n="${n:0:${#n}-3}"
+  done
+  printf '%s%s%s' "$sign" "$n" "$out"
 }
 
 # ── Git cache (3-second TTL) ──────────────────────────────────────
@@ -1035,6 +1043,7 @@ fi
 
 COST_COLOR="${COST_GREEN}"
 formatted_cost=$(printf '%.2f' "${cost:-0}")
+formatted_cost="$(_fmt_num "${formatted_cost%.*}").${formatted_cost#*.}"
 cost_segment=""
 if [[ "$formatted_cost" != "0.00" ]]; then
   cost_segment="${COST_COLOR}${cost_icon}${formatted_cost}${RESET}"
