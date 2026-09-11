@@ -128,8 +128,13 @@ if [[ -n "$project_dir" && -f "$_claude_json" ]]; then
   done < <(jq -r --arg p "$project_dir" '[.projects[$p].mcpServers // {} | to_entries[] | select(.value.disabled != true) | .key] | sort[]' "$_claude_json" 2>/dev/null)
 fi
 mcp_total=$mcp_enabled
-# Sort names alphabetically (handles names from multiple files)
-IFS=$'\n' mcp_names_sorted=($(printf '%s\n' "${mcp_names[@]}" | sort -f)); unset IFS
+# Sort names alphabetically (handles names from multiple files).
+# Guard the empty case: bash 3.2 + set -u rejects "${arr[@]}" on an empty
+# array, and printf would still emit one blank line for sort to return.
+mcp_names_sorted=()
+if (( ${#mcp_names[@]} > 0 )); then
+  IFS=$'\n' mcp_names_sorted=($(printf '%s\n' "${mcp_names[@]}" | sort -f)); unset IFS
+fi
 
 # ── Colors (4-color palette + brand) ──────────────────────────────────
 # Primary: workspace identity
