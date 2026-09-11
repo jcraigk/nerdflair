@@ -260,14 +260,23 @@ _fmt_num() {
   printf '%s%s%s' "$sign" "$n" "$out"
 }
 
+# Coerce a cached or external value to a non-negative integer. Cache files feed
+# (( )) arithmetic, and bash evaluates a[$(cmd)] there, so never trust them raw.
+_int_or_zero() {
+  if [[ "$1" =~ ^[0-9]+$ ]]; then printf "%s" "$1"; else printf "0"; fi
+}
+
 # ── Git cache (3-second TTL) ──────────────────────────────────────
 # Cache git status/diff results to avoid running git on every render.
 _GIT_CACHE_TTL=3
+# Caches live under HOME, never in world-writable /tmp where another user could
+# plant a file (or a symlink) with a predictable name.
+mkdir -p "$NF_CACHE_DIR" 2>/dev/null
 _git_cache_file=""
 _git_cache_fresh=false
 if [[ -n "$git_dir" ]]; then
   _git_dir_hash=$(printf '%s' "$git_dir" | cksum | cut -d' ' -f1)
-  _git_cache_file="/tmp/nerdflair-git-${_git_dir_hash}"
+  _git_cache_file="$NF_CACHE_DIR/git-${_git_dir_hash}"
   if [[ -f "$_git_cache_file" ]]; then
     _cache_age=$(( $(date +%s) - $(stat -f %m "$_git_cache_file" 2>/dev/null || stat -c %Y "$_git_cache_file" 2>/dev/null || echo 0) ))
     (( _cache_age < _GIT_CACHE_TTL )) && _git_cache_fresh=true
@@ -303,6 +312,10 @@ if [[ -n "$git_dir" ]]; then
     printf '%s\t%s\t%s\t%s\t%s\t%s' "$_gc_dirty" "$_gc_added" "$_gc_removed" "$_gc_branch" "$_gc_remote" "$_gc_worktree" > "$_git_cache_file"
   fi
   IFS=$'\t' read -r _gc_dirty _gc_added _gc_removed _gc_branch _gc_remote _gc_worktree < "$_git_cache_file"
+  _gc_dirty=$(_int_or_zero "${_gc_dirty:-0}")
+  _gc_added=$(_int_or_zero "${_gc_added:-0}")
+  _gc_removed=$(_int_or_zero "${_gc_removed:-0}")
+  _gc_worktree=$(_int_or_zero "${_gc_worktree:-0}")
 fi
 
 # ── Uncommitted files segment ────────────────────────────────────
@@ -341,7 +354,7 @@ if (( ${#_multi_git_subs[@]} > 0 )); then
   _multi_total_count=${#_multi_git_subs[@]}
   _multi_cache_fresh=false
   _cwd_hash=$(printf '%s' "$cwd" | cksum | cut -d' ' -f1)
-  _multi_cache_file="/tmp/nerdflair-multibranch-${_cwd_hash}"
+  _multi_cache_file="$NF_CACHE_DIR/multibranch-${_cwd_hash}"
   if [[ -f "$_multi_cache_file" ]]; then
     _mcache_age=$(( $(date +%s) - $(stat -f %m "$_multi_cache_file" 2>/dev/null || stat -c %Y "$_multi_cache_file" 2>/dev/null || echo 0) ))
     (( _mcache_age < _GIT_CACHE_TTL )) && _multi_cache_fresh=true
@@ -364,7 +377,7 @@ if (( ${#_multi_git_subs[@]} > 0 )); then
   fi
   IFS= read -r _multi_off_count < "$_multi_cache_file"
   _multi_branch_list=$(sed -n '2,$p' "$_multi_cache_file")
-  _multi_off_count=${_multi_off_count:-0}
+  _multi_off_count=$(_int_or_zero "${_multi_off_count:-0}")
   _multi_branch_list=$(_sanitize "$_multi_branch_list")
 fi
 

@@ -317,6 +317,33 @@ test_renderer_lines_added_has_thousands_separator() {
   _teardown
 }
 
+test_renderer_git_cache_lives_under_home() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  _render "$state" "$(_make_input 42 5.00)" >/dev/null
+  local n
+  n=$(ls "$FAKE_HOME/.claude/nerdflair/cache/" 2>/dev/null | grep -c '^git-' || true)
+  assert_equals "git cache written under HOME, not /tmp" "$n" "1"
+  _teardown
+}
+
+# Cache contents feed (( )) arithmetic; a planted cache must not execute code.
+test_renderer_poisoned_git_cache_is_inert() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  mkdir -p "$FAKE_HOME/.claude/nerdflair/cache"
+  local hash
+  hash=$(printf '%s' "$FAKE_CWD" | cksum | cut -d' ' -f1)
+  printf 'a[$(touch %s/pwned)]\t0\t0\tmain\t\t0' "$TMPDIR_ROOT" > "$FAKE_HOME/.claude/nerdflair/cache/git-$hash"
+  local output
+  output=$(_render "$state" "$(_make_input 42 5.00)" 2>/dev/null | _strip_ansi)
+  local executed="no"
+  [[ -e "$TMPDIR_ROOT/pwned" ]] && executed="yes"
+  assert_equals "poisoned cache did not execute" "$executed" "no"
+  assert_contains "still renders a row" "$output" "my-project"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
