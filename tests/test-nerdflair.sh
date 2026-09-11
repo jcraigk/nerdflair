@@ -774,6 +774,16 @@ test_config_layout_rejects_regex_like_argument() {
   _teardown
 }
 
+test_config_corrupt_state_warns_instead_of_dying_silently() {
+  _setup
+  echo '{"mode": "full", "wid' > "$FAKE_HOME/.claude/nerdflair/state.json"
+  local rc=0 err_file="$TMPDIR_ROOT/err"
+  _configure info >/dev/null 2>"$err_file" || rc=$?
+  assert_exit_code "info survives corrupt state" "0" "$rc"
+  assert_contains "warns about invalid JSON" "$(cat "$err_file")" "not valid JSON"
+  _teardown
+}
+
 test_config_legacy_default_color_migrated() {
   _setup
   # Write state with old "default" color value

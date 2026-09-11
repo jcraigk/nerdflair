@@ -95,7 +95,10 @@ _nf_read_state() {
       .audio_style // "",
       .audio_events // "",
       .bell_volume // ""
-    ] | @tsv' "$NF_STATE_FILE" 2>/dev/null)
+    ] | @tsv' "$NF_STATE_FILE" 2>/dev/null) || {
+      printf "nerdflair: %s is not valid JSON; using defaults\n" "$NF_STATE_FILE" >&2
+      _json=""
+    }
 
     IFS=$'\t' read -r \
       NF_CUR_MODE NF_CUR_WIDTH NF_CUR_FLAIR NF_CUR_COLOR \
