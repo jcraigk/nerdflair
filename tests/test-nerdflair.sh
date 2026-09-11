@@ -1097,7 +1097,7 @@ EOF2
 test_bell_cleans_up_session_file_on_session_end() {
   _setup
   cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF'
-{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "off", "chime_sound": "Glass", "chime_volume": "0.50", "chime_style": "random", "chime_events": "SessionStart,SessionEnd", "color": "vibrant"}
+{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "off", "chime_sound": "Glass", "chime_volume": "0", "chime_style": "random", "chime_events": "SessionStart,SessionEnd", "color": "vibrant"}
 EOF
   # Create a session file via SessionStart
   echo '{"session_id":"cleanup-session"}' | HOME="$FAKE_HOME" bash "$BELL" SessionStart >/dev/null 2>&1 || true
@@ -1132,18 +1132,26 @@ done < <(declare -F | awk '{print $3}' | grep '^test_' | sort)
 
 # Collect results in temp files so the summary survives a test that exits.
 _results_dir=$(mktemp -d)
-trap 'rm -rf "$_results_dir"' EXIT
+# Also remove the fixture dir of a test that crashed before its own _teardown.
+trap 'rm -rf "$_results_dir" "${TMPDIR_ROOT:-}"' EXIT
 
 echo "Running ${#_tests[@]} tests..."
 echo ""
 
 for t in "${_tests[@]}"; do
   printf "  %-60s" "$t"
-  # Run each test; capture pass/fail via temp files
+  # Run each test. stderr is captured rather than discarded: with errexit
+  # suspended inside the if, a failing command would otherwise vanish silently,
+  # so any stderr output counts as a failure and is shown in the summary.
   _pass=0
   _fail=0
   _errors=()
-  if "$t" 2>/dev/null; then
+  _err_file="$_results_dir/$t.err"
+  if "$t" 2>"$_err_file"; then
+    if [[ -s "$_err_file" ]]; then
+      (( _fail++ ))
+      _errors+=("FAIL: $t wrote to stderr: $(head -3 "$_err_file" | tr '\n' '|')")
+    fi
     if (( _fail > 0 )); then
       echo "FAIL"
       echo "$_fail" >> "$_results_dir/fails"
@@ -1157,7 +1165,7 @@ for t in "${_tests[@]}"; do
   else
     echo "FAIL (crashed)"
     echo "1" >> "$_results_dir/fails"
-    echo "FAIL: $t -- crashed or exited nonzero" >> "$_results_dir/errors"
+    echo "FAIL: $t -- crashed or exited nonzero: $(tail -1 "$_err_file" 2>/dev/null)" >> "$_results_dir/errors"
   fi
 done
 
