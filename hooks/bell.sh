@@ -169,7 +169,8 @@ _find_tty() {
   while [ "$pid" -gt 1 ]; do
     local tty
     tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
-    if [ -n "$tty" ] && [ "$tty" != "??" ]; then
+    # macOS prints "??" for no TTY, Linux prints "?" (procps) or "-".
+    if [ -n "$tty" ] && [ "$tty" != "??" ] && [ "$tty" != "?" ] && [ "$tty" != "-" ]; then
       echo "/dev/$tty"
       return 0
     fi
@@ -181,7 +182,7 @@ _find_tty() {
 # Send terminal bell (BEL character) — hard-coded to attention-seeking events only
 if [[ "$terminal_bell" == "on" ]] && echo ",$TERMINAL_BELL_EVENTS," | grep -q ",$EVENT,"; then
   if tty_path=$(_find_tty); then
-    printf '\a' > "$tty_path"
+    printf "\a" > "$tty_path" 2>/dev/null || true
   fi
 fi
 
