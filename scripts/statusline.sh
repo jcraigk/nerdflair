@@ -1199,19 +1199,6 @@ TIER_FG=(
   "\033[38;2;148;125;60m"
   "\033[38;2;170;130;62m"
 )
-# Wind icons: darker than fill BG (~30-40 units)
-TIER_WIND=(
-  "\033[38;2;27;35;30m"     # 0–10
-  "\033[38;2;29;43;30m"     # 11–20
-  "\033[38;2;32;52;31m"     # 21–30
-  "\033[38;2;38;63;31m"     # 31–40
-  "\033[38;2;50;71;30m"     # 41–50
-  "\033[38;2;66;78;29m"     # 51–60
-  "\033[38;2;86;84;28m"     # 61–70
-  "\033[38;2;109;91;30m"    # 71–80
-  "\033[38;2;131;93;30m"    # 81–90
-  "\033[38;2;153;66;27m"    # 91–100
-)
 EMPTY_BG="\033[48;2;35;38;45m"
 EMPTY_FG="\033[38;2;35;38;45m"
 LIGHT_FG="\033[38;2;85;90;100m"    # dim text on empty bg
@@ -1244,18 +1231,6 @@ if [[ "$_SL_COLOR_MODE" == "mono" ]]; then
     "\033[38;2;170;170;170m"
     "\033[38;2;190;190;190m"
   )
-  TIER_WIND=(
-    "\033[38;2;28;28;28m"
-    "\033[38;2;35;35;35m"
-    "\033[38;2;44;44;44m"
-    "\033[38;2;54;54;54m"
-    "\033[38;2;66;66;66m"
-    "\033[38;2;78;78;78m"
-    "\033[38;2;92;92;92m"
-    "\033[38;2;107;107;107m"
-    "\033[38;2;126;126;126m"
-    "\033[38;2;146;146;146m"
-  )
   EMPTY_BG="\033[48;2;38;38;38m"
   EMPTY_FG="\033[38;2;38;38;38m"
   LIGHT_FG="\033[38;2;90;90;90m"
@@ -1286,18 +1261,6 @@ elif [[ "$_SL_COLOR_MODE" == "muted" ]]; then
     "\033[38;2;158;132;70m"
     "\033[38;2;178;132;68m"
   )
-  TIER_WIND=(
-    "\033[38;2;33;47;31m"
-    "\033[38;2;35;49;33m"
-    "\033[38;2;37;52;34m"
-    "\033[38;2;40;54;32m"
-    "\033[38;2;44;57;31m"
-    "\033[38;2;48;60;30m"
-    "\033[38;2;62;66;28m"
-    "\033[38;2;92;83;32m"
-    "\033[38;2;120;93;34m"
-    "\033[38;2;140;93;32m"
-  )
   EMPTY_BG="\033[48;2;38;40;45m"
   EMPTY_FG="\033[38;2;38;40;45m"
   LIGHT_FG="\033[38;2;88;92;102m"
@@ -1310,26 +1273,17 @@ fi
 GRAD_BG_R=(48 50 55 65  88  115 140 160 180 200)
 GRAD_BG_G=(62 74 88 105 112 116 122 125 120 55)
 GRAD_BG_B=(48 48 50 52  54  55  58  60  58  50)
-GRAD_WN_R=(27 29 32 38 50  66  86  109 131 153)
-GRAD_WN_G=(35 43 52 63 71  78  84  91  93  66)
-GRAD_WN_B=(30 30 31 31 30  29  28  30  30  27)
 
 if [[ "$_SL_COLOR_MODE" == "mono" ]]; then
   # Monochrome: dark grey → bright grey, subtle brightness ramp
   GRAD_BG_R=(45 55 65 76 88  100 115 132 155 185)
   GRAD_BG_G=(45 55 65 76 88  100 115 132 155 185)
   GRAD_BG_B=(45 55 65 76 88  100 115 132 155 185)
-  GRAD_WN_R=(28 35 44 54 66  78  92  107 126 146)
-  GRAD_WN_G=(28 35 44 54 66  78  92  107 126 146)
-  GRAD_WN_B=(28 35 44 54 66  78  92  107 126 146)
 elif [[ "$_SL_COLOR_MODE" == "muted" ]]; then
   # Muted: same hue progression as default but desaturated (~40% saturation)
   GRAD_BG_R=(48 52 55 62 76  92  110 132 150 168)
   GRAD_BG_G=(52 58 65 74 86  96  104 108 104 68)
   GRAD_BG_B=(50 52 54 56 58  58  60  62  60  56)
-  GRAD_WN_R=(33 35 37 40 44  48  62  92  120 140)
-  GRAD_WN_G=(47 49 52 54 57  60  66  83  93  93)
-  GRAD_WN_B=(31 33 34 32 31  30  28  32  34  32)
 fi
 
 # Powerline semicircle glyphs
@@ -1360,12 +1314,11 @@ if [[ "$_SL_MODE" == "minimal" ]]; then
 fi
 
 # ── _compute_gradient_cache: pre-compute per-cell ANSI colors ────
-# Populates _cell_bg_cache, _cell_fg_cache, _cell_wind_cache in the
+# Populates _cell_bg_cache and _cell_fg_cache in the
 # caller's scope. Interpolates RGB between GRAD_* control points.
 _compute_gradient_cache() {
   local _filled=$1 _body_area=$2 _compact_mark_pct="$3"
   _cell_bg_cache=()
-  _cell_wind_cache=()
   _cell_fg_cache=()
   for (( _ci=0; _ci<_filled; _ci++ )); do
     local _cpct=$(( (_ci + 1) * 100 / _body_area ))
@@ -1384,10 +1337,6 @@ _compute_gradient_cache() {
     local _b=$(( GRAD_BG_B[_lo] + (GRAD_BG_B[_hi] - GRAD_BG_B[_lo]) * _frac / 100 ))
     _cell_bg_cache[$_ci]="\033[48;2;${_r};${_g};${_b}m"
     _cell_fg_cache[$_ci]="\033[38;2;${_r};${_g};${_b}m"
-    _r=$(( GRAD_WN_R[_lo] + (GRAD_WN_R[_hi] - GRAD_WN_R[_lo]) * _frac / 100 ))
-    _g=$(( GRAD_WN_G[_lo] + (GRAD_WN_G[_hi] - GRAD_WN_G[_lo]) * _frac / 100 ))
-    _b=$(( GRAD_WN_B[_lo] + (GRAD_WN_B[_hi] - GRAD_WN_B[_lo]) * _frac / 100 ))
-    _cell_wind_cache[$_ci]="\033[38;2;${_r};${_g};${_b}m"
   done
 }
 
@@ -1468,7 +1417,6 @@ _render_bar() {
   (( _top_tier_idx < 0 )) && _top_tier_idx=0
   local _FILL_BG="${TIER_BG[$_top_tier_idx]}"
   local _FILL_FG="${TIER_FG[$_top_tier_idx]}"
-  local _WIND_FG="${TIER_WIND[$_top_tier_idx]}"
 
   # Bar area: fixed width, clamped to MAX_BAR
   local _bar_area=$(( bar_width - 2 ))
@@ -1533,7 +1481,7 @@ _render_bar() {
   fi
 
   # Pre-compute per-cell gradient colors
-  local _cell_bg_cache=() _cell_wind_cache=() _cell_fg_cache=()
+  local _cell_bg_cache=() _cell_fg_cache=()
   _compute_gradient_cache "$_filled" "$_body_area" "$_compact_mark_pct"
 
   # Outer cap colors — left cap uses first filled cell, right cap uses last
@@ -1637,11 +1585,9 @@ _render_bar() {
     # Per-cell smooth gradient colors from pre-computed cache
     local _cell_bg="$_FILL_BG"
     local _cell_fg="$_FILL_FG"
-    local _cell_wind="$_WIND_FG"
     if (( _body_i < _filled )); then
       _cell_bg="${_cell_bg_cache[$_body_i]}"
       _cell_fg="${_cell_fg_cache[$_body_i]}"
-      _cell_wind="${_cell_wind_cache[$_body_i]}"
     fi
 
     if (( _vis >= _label_start && _vis < _label_end )); then
