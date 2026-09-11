@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh Stop",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" Stop",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh Notification",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" Notification",
             "timeout": 5
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh PermissionRequest",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" PermissionRequest",
             "timeout": 5
           }
         ]
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh SessionStart",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" SessionStart",
             "timeout": 5
           }
         ]
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh SessionEnd",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" SessionEnd",
             "timeout": 5
           }
         ]
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh PreCompact",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" PreCompact",
             "timeout": 5
           }
         ]
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh UserPromptSubmit",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bell.sh\" UserPromptSubmit",
             "timeout": 5
           }
         ]

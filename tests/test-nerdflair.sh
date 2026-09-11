@@ -613,6 +613,16 @@ test_config_install_on_fresh_home_writes_defaults() {
   _teardown
 }
 
+test_config_install_quotes_statusline_path() {
+  _setup
+  _configure install >/dev/null 2>&1 || true
+  local cmd
+  cmd=$(jq -r '.statusLine.command' "$FAKE_HOME/.claude/settings.json")
+  assert_contains "statusline path is quoted" "$cmd" 'bash "'
+  assert_contains "statusline path ends quoted" "$cmd" 'statusline.sh"'
+  _teardown
+}
+
 # Ownership of spinnerVerbs is recorded in state, not inferred from one verb
 # the user is allowed to edit out of spinners.txt.
 test_config_spinner_verbs_ownership_survives_verb_edits() {

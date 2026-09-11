@@ -357,7 +357,7 @@ while [[ $# -gt 0 ]]; do
       fi
 
       # Configure statusLine
-      _sl_cmd="bash ${SCRIPT_DIR}/statusline.sh"
+      _sl_cmd="bash \"${SCRIPT_DIR}/statusline.sh\""  # quoted: the plugin path may contain spaces
       if [[ ! -f "$NF_SETTINGS_FILE" ]]; then
         echo '{}' > "$NF_SETTINGS_FILE"
       fi
