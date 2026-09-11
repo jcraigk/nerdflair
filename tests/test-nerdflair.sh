@@ -42,6 +42,21 @@ _setup() {
   ) >/dev/null 2>&1
 }
 
+# Exercise the empty-bar (logo) and full-bar paths, which most tests skip.
+test_renderer_bar_at_zero_and_full() {
+  _setup
+  local state='{"mode": "compact", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  echo "$state" > "$FAKE_HOME/.claude/nerdflair/state.json"
+  local err_file="$TMPDIR_ROOT/err" out0 out100
+  out0=$(_make_input 0 0.00 | HOME="$FAKE_HOME" bash "$RENDERER" 2>"$err_file" | _strip_ansi)
+  assert_equals "no errors at 0%" "" "$(cat "$err_file")"
+  assert_contains "logo glyph shown at 0%" "$out0" $'\xf3\xb0\xaf\xb4'
+  out100=$(_make_input 100 9.99 | HOME="$FAKE_HOME" bash "$RENDERER" 2>"$err_file" | _strip_ansi)
+  assert_equals "no errors at 100%" "" "$(cat "$err_file")"
+  assert_contains "label shown at 100%" "$out100" "100%"
+  _teardown
+}
+
 _teardown() {
   rm -rf "$TMPDIR_ROOT"
 }

@@ -1382,17 +1382,13 @@ _compute_logo_gradient() {
 _render_bar() {
   local _pct=$1
   local _label="$2"
-  local _suffix="${3:-}"
-  local _compact_mark_pct="${4:-}"
-  local _right_label="${5:-}"
+  local _compact_mark_pct="${3:-}"
+  local _right_label="${4:-}"
 
   # NerdFlair logo: shown right-aligned in empty area of bar
   local _logo_icons=()
   local _logo_start=0
   local _NF_BRAND_COLOR="\033[38;2;145;130;155m"
-  local _NF_BRAND_COLORS=()
-  local _i
-  for (( _i=0; _i<17; _i++ )); do _NF_BRAND_COLORS+=("$_NF_BRAND_COLOR"); done
   _logo_icons=(
     "$(printf '\xee\xa0\xb8')" " "
     "$(printf '\xf3\xb0\xaf\xb7')" " "
@@ -1471,10 +1467,8 @@ _render_bar() {
   # Right-aligned label in empty area
   local _rlabel_start=-1
   local _rlabel_end=-1
-  local _rlabel_padded=""
   if [[ -n "$_right_label" ]]; then
-    _rlabel_padded="${_right_label}"
-    local _rlabel_len=${#_rlabel_padded}
+    local _rlabel_len=${#_right_label}
     _rlabel_start=$(( _bar_area - _rlabel_len ))
     (( _rlabel_start < 0 )) && _rlabel_start=0
     _rlabel_end=$(( _rlabel_start + _rlabel_len ))
@@ -1490,8 +1484,6 @@ _render_bar() {
     _left_cap_fg="${TIER_FG[0]}"
   elif (( ${#_logo_icons[@]} > 0 && ${#_logo_bg_cache[@]} > 0 )); then
     _left_cap_fg="${_logo_fg_cache[0]}"
-  elif (( ${#_logo_icons[@]} > 0 )); then
-    _left_cap_fg="$_COMPACT_EMPTY_FG"
   else
     _left_cap_fg="$EMPTY_FG"
   fi
@@ -1500,8 +1492,6 @@ _render_bar() {
     _right_cap_fg="$_FILL_FG"
   elif (( ${#_logo_icons[@]} > 0 && ${#_logo_bg_cache[@]} > 0 )); then
     _right_cap_fg="${_logo_fg_cache[$((_bar_area - 1))]}"
-  elif (( ${#_logo_icons[@]} > 0 )); then
-    _right_cap_fg="$_COMPACT_EMPTY_FG"
   elif (( _compact_mark_pos >= 0 )); then
     _right_cap_fg="$_COMPACT_EMPTY_FG"
   else
@@ -1524,12 +1514,9 @@ _render_bar() {
   while (( _vis < _bar_area )); do
     # Insert inner transition cap at the fill boundary (fill → empty)
     if (( _has_inner_cap && _body_i == _filled )); then
-      # Pick correct empty BG based on whether we're past the compact mark
-      # or logo is showing (uses darker BG everywhere)
+      # Darker empty BG past the compact mark (the logo never coexists with a cap)
       local _cap_empty_bg="$EMPTY_BG"
-      if (( ${#_logo_icons[@]} > 0 )); then
-        _cap_empty_bg="$_COMPACT_EMPTY_BG"
-      elif (( _compact_mark_pos >= 0 && _vis >= _compact_mark_pos )); then
+      if (( _compact_mark_pos >= 0 && _vis >= _compact_mark_pos )); then
         _cap_empty_bg="$_COMPACT_EMPTY_BG"
       fi
       # Use the last filled cell's FG/BG for the transition cap
@@ -1561,8 +1548,6 @@ _render_bar() {
     local _cur_light_fg="$LIGHT_FG"
     if (( ${#_logo_icons[@]} > 0 && ${#_logo_bg_cache[@]} > 0 )); then
       _cur_empty_bg="${_logo_bg_cache[$_vis]}"
-    elif (( ${#_logo_icons[@]} > 0 )); then
-      _cur_empty_bg="$_COMPACT_EMPTY_BG"
     elif (( _compact_mark_pos >= 0 && _vis >= _compact_mark_pos )); then
       _cur_empty_bg="$_COMPACT_EMPTY_BG"
     fi
@@ -1601,7 +1586,7 @@ _render_bar() {
     elif (( _rlabel_start >= 0 && _vis >= _rlabel_start && _vis < _rlabel_end && _body_i >= _filled )); then
       # Right-aligned label in empty area
       local _ri=$(( _vis - _rlabel_start ))
-      local _rch="${_rlabel_padded:$_ri:1}"
+      local _rch="${_right_label:$_ri:1}"
       _bar+="${_cur_empty_bg}${_cur_light_fg}${_rch}"
     else
       if (( _body_i < _filled )); then
@@ -1609,7 +1594,7 @@ _render_bar() {
       else
         if (( ${#_logo_icons[@]} > 0 && _vis >= _logo_start && _vis < _logo_end )); then
           local _li=$(( _vis - _logo_start ))
-          local _lc="${_NF_BRAND_COLORS[$_li]:-${_NF_BRAND_COLOR}}"
+          local _lc="$_NF_BRAND_COLOR"
           _bar+="${_cur_empty_bg}${_lc}${_logo_icons[$_li]}"
         else
           _bar+="${_cur_empty_bg} "
@@ -1621,16 +1606,13 @@ _render_bar() {
   done
 
   # Assemble and print the bar
-  printf '\n%b%b%b%b%b' \
+  printf '\n%b%b%b%b' \
     "${RESET}${_left_cap_fg}${PL_LEFT}" \
     "${_bar}" \
     "${RESET}${_right_cap_fg}${PL_RIGHT}" \
-    "${_suffix}" \
     "${RESET}"
 }
 
-
-_bar_label="$ctx_label"
 
 # Render the real progress bar (skip in minimal — context pill is on row 1)
 if [[ "$_SL_MODE" != "minimal" ]]; then
@@ -1645,7 +1627,7 @@ if [[ "$_SL_MODE" != "minimal" ]]; then
   # Calculate available space in the dark zone for right-aligned content
   # Dark zone = bar_area * (100 - compact_mark%) / 100, minus 1 for the right cap
   _bar_area_est=$(( bar_width - 2 ))
-  (( _bar_area_est > 78 )) && _bar_area_est=78
+  (( _bar_area_est > MAX_BAR )) && _bar_area_est=$MAX_BAR
   (( _bar_area_est < 20 )) && _bar_area_est=20
   _dark_zone=$(( _bar_area_est - _bar_area_est * 80 / 100 ))
 
@@ -1672,7 +1654,7 @@ if [[ "$_SL_MODE" != "minimal" ]]; then
     fi
     _bar_right_label="$_try"
   fi
-  _render_bar "$pct" "$_bar_label" "" "$_compact_mark" "$_bar_right_label"
+  _render_bar "$pct" "$ctx_label" "$_compact_mark" "$_bar_right_label"
 fi
 
 # Row 3: mcp | time + cost (full mode only)
