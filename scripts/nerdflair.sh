@@ -233,11 +233,12 @@ while [[ $# -gt 0 ]]; do
       _vol="$2"
       if [[ "$_vol" =~ ^[0-9]+%?$ ]]; then
         _vol="${_vol%\%}"
+        _vol=$((10#$_vol))  # "08" is eight percent, not octal
         if (( _vol < 0 || _vol > 100 )); then
           printf '%b✗ Volume must be 0-100%b\n' "$NF_RED" "$NF_RST"
           exit 1
         fi
-        set_volume=$(awk -v v="$_vol" 'BEGIN {printf "%.2f", v / 100}')
+        set_volume=$(LC_ALL=C awk -v v="$_vol" 'BEGIN {printf "%.2f", v / 100}')
       else
         printf '%b✗ Volume must be 0-100 (integer)%b\n' "$NF_RED" "$NF_RST"
         exit 1
@@ -468,7 +469,7 @@ if [[ "$show_info" == "true" ]]; then
   else
     printf ' %bterminal-bell: off%b' "$NF_DIM" "$NF_RST"
   fi
-  _vol_pct=$(awk -v v="$current_chime_volume" 'BEGIN {printf "%g", v * 100}')
+  _vol_pct=$(LC_ALL=C awk -v v="$current_chime_volume" 'BEGIN {printf "%g", v * 100}')
   if [[ "$_vol_pct" == "0" ]]; then
     printf ' %bchime-volume: muted%b' "$NF_DIM" "$NF_RST"
   else
@@ -651,7 +652,7 @@ if [[ "$next_terminal_bell" == "on" ]]; then
 else
   printf ' %bterminal-bell: off%b' "$NF_DIM" "$NF_RST"
 fi
-_vol_pct=$(awk -v v="$next_chime_volume" 'BEGIN {printf "%g", v * 100}')
+_vol_pct=$(LC_ALL=C awk -v v="$next_chime_volume" 'BEGIN {printf "%g", v * 100}')
 if [[ "$_vol_pct" == "0" ]]; then
   printf ' %bchime-volume: muted%b' "$NF_DIM" "$NF_RST"
 else

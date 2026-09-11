@@ -823,6 +823,24 @@ test_config_reads_state_correctly_with_empty_fields() {
   _teardown
 }
 
+test_config_volume_leading_zero_is_decimal() {
+  _setup
+  _configure layout full >/dev/null 2>&1
+  local err_file="$TMPDIR_ROOT/err"
+  _configure chime-volume 08 >/dev/null 2>"$err_file" || true
+  assert_equals "no octal error" "" "$(cat "$err_file")"
+  assert_equals "08 means 8 percent" "$(_state_field "chime_volume")" "0.08"
+  _teardown
+}
+
+test_config_volume_uses_dot_decimal_in_any_locale() {
+  _setup
+  _configure layout full >/dev/null 2>&1
+  LC_ALL=de_DE.UTF-8 _configure chime-volume 50 >/dev/null 2>&1 || true
+  assert_equals "volume written with a dot" "$(_state_field "chime_volume")" "0.50"
+  _teardown
+}
+
 test_config_legacy_default_color_migrated() {
   _setup
   # Write state with old "default" color value
