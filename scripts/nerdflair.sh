@@ -93,11 +93,6 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
-    flair)
-      # Legacy: flair is always on (texture always shown)
-      printf '%bFlair is always on — texture is always shown.%b\n' "$NF_DIM" "$NF_RST"
-      exit 0
-      ;;
     terminal-bell|bell)
       toggle_terminal_bell=true
       shift
@@ -330,10 +325,6 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       ;;
-    context-bar)
-      # Legacy: silently ignore
-      shift
-      ;;
     color-palette|color)
       if [[ -n "${2:-}" && "${2:-}" != -* ]]; then
         case "$2" in
@@ -350,16 +341,7 @@ while [[ $# -gt 0 ]]; do
     install)
       # Idempotent install / upgrade: preserve user settings, refresh plugin state.
       if [[ ! -f "$NF_STATE_FILE" ]]; then
-        NF_CUR_MODE="$NF_DEFAULT_MODE"
-        NF_CUR_WIDTH="$NF_DEFAULT_WIDTH"
-        NF_CUR_FLAIR="true"
-        NF_CUR_COLOR="$NF_DEFAULT_COLOR"
-        NF_CUR_TERMINAL_BELL="$NF_DEFAULT_TERMINAL_BELL"
-        NF_CUR_CHIME_SOUND="$NF_DEFAULT_CHIME_SOUND"
-        NF_CUR_CHIME_STYLE="$NF_DEFAULT_CHIME_STYLE"
-        NF_CUR_CHIME_EVENTS="$NF_DEFAULT_CHIME_EVENTS"
-        NF_CUR_CHIME_VOLUME="$NF_DEFAULT_CHIME_VOLUME"
-        NF_CUR_LAST_SESSION=""
+        # NF_CUR_* already hold the defaults applied by _nf_read_state.
         _nf_write_state
         printf '%b✓ Settings initialized to defaults%b\n' "$NF_GREEN" "$NF_RST"
       else
@@ -499,7 +481,6 @@ if [[ "$show_info" == "true" ]]; then
 fi
 
 # Handle flair toggle
-next_flair="true"  # flair is always on
 
 # Handle terminal-bell toggle: on → off → on
 next_terminal_bell="$current_terminal_bell"
@@ -626,7 +607,6 @@ next_chime_volume="${set_volume:-$current_chime_volume}"
 # Write new state using jq (preserves chime_recent_styles automatically)
 NF_CUR_MODE="$next_mode"
 NF_CUR_WIDTH="$next_width"
-NF_CUR_FLAIR="$next_flair"
 NF_CUR_TERMINAL_BELL="$next_terminal_bell"
 NF_CUR_CHIME_SOUND="$next_chime_sound"
 NF_CUR_CHIME_VOLUME="$next_chime_volume"

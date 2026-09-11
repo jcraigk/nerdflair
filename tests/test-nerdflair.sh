@@ -154,7 +154,6 @@ _state_field_raw() {
     | head -1 | sed 's/.*:[[:space:]]*//'
 }
 
-
 # ════════════════════════════════════════════════════════════════
 # RENDERER TESTS
 # ════════════════════════════════════════════════════════════════
@@ -592,7 +591,6 @@ test_renderer_width_respected() {
   _teardown
 }
 
-
 # ════════════════════════════════════════════════════════════════
 # CONFIGURATOR TESTS
 # ════════════════════════════════════════════════════════════════
@@ -603,6 +601,15 @@ test_config_default_state_created() {
   local mode
   mode=$(_state_field "mode")
   assert_equals "default mode is full" "$mode" "full"
+  _teardown
+}
+
+test_config_install_on_fresh_home_writes_defaults() {
+  _setup
+  _configure install >/dev/null 2>&1 || true
+  assert_equals "install default mode" "$(_state_field "mode")" "full"
+  assert_equals "install default chime events" "$(_state_field "chime_events")" "Notification,PermissionRequest,PreCompact,SessionEnd,SessionStart,Stop"
+  assert_not_contains "dead flair field no longer written" "$(cat "$FAKE_HOME/.claude/nerdflair/state.json")" "flair"
   _teardown
 }
 
@@ -658,17 +665,6 @@ test_config_width_validation() {
   rc=0
   _configure width 10 >/dev/null 2>&1 || rc=$?
   assert_exit_code "width < 50 rejected" "1" "$rc"
-  _teardown
-}
-
-test_config_flair_always_on() {
-  _setup
-  _configure layout full >/dev/null 2>&1
-  assert_equals "flair default true" "$(_state_field_raw "flair")" "true"
-  # flair command is legacy — should exit 0 without changing state
-  local output
-  output=$(_configure flair 2>&1)
-  assert_contains "flair prints always-on message" "$output" "always on"
   _teardown
 }
 
@@ -887,7 +883,6 @@ EOF
   _teardown
 }
 
-
 # ════════════════════════════════════════════════════════════════
 # BELL HOOK TESTS
 # ════════════════════════════════════════════════════════════════
@@ -1006,7 +1001,6 @@ EOF
   fi
   _teardown
 }
-
 
 # ════════════════════════════════════════════════════════════════
 # RUN ALL TESTS

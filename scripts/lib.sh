@@ -83,7 +83,6 @@ _nf_read_state() {
     _json=$(jq -r '[
       .mode // "",
       .width // "",
-      .flair // "",
       .color // "",
       .terminal_bell // "",
       .chime_sound // "",
@@ -102,7 +101,7 @@ _nf_read_state() {
 
     # Unit separator, not tab: tab is IFS whitespace and collapses empty fields.
     IFS=$'\x1f' read -r \
-      NF_CUR_MODE NF_CUR_WIDTH NF_CUR_FLAIR NF_CUR_COLOR \
+      NF_CUR_MODE NF_CUR_WIDTH NF_CUR_COLOR \
       NF_CUR_TERMINAL_BELL NF_CUR_CHIME_SOUND NF_CUR_CHIME_STYLE \
       NF_CUR_CHIME_EVENTS NF_CUR_CHIME_VOLUME NF_CUR_LAST_SESSION \
       _old_bell _old_audio_style _old_audio_events _old_bell_volume \
@@ -112,7 +111,6 @@ _nf_read_state() {
   # Apply defaults
   NF_CUR_MODE="${NF_CUR_MODE:-$NF_DEFAULT_MODE}"
   NF_CUR_WIDTH="${NF_CUR_WIDTH:-$NF_DEFAULT_WIDTH}"
-  NF_CUR_FLAIR="${NF_CUR_FLAIR:-true}"
   NF_CUR_COLOR="${NF_CUR_COLOR:-$NF_DEFAULT_COLOR}"
   NF_CUR_TERMINAL_BELL="${NF_CUR_TERMINAL_BELL:-}"
   NF_CUR_CHIME_SOUND="${NF_CUR_CHIME_SOUND:-$NF_DEFAULT_CHIME_SOUND}"
@@ -157,12 +155,9 @@ _nf_read_state() {
 }
 
 # ── Write state file atomically using jq ─────────────────────────
-# Usage: _nf_write_state [extra_jq_filter]
-# Writes NF_CUR_* variables to state.json, preserving chime_recent_styles
-# and last_session. Optional jq filter is applied last (e.g. to set
-# additional fields).
+# Usage: _nf_write_state
+# Writes NF_CUR_* variables to state.json, preserving chime_recent_styles.
 _nf_write_state() {
-  local extra_filter="${1:-}"
   mkdir -p "$(dirname "$NF_STATE_FILE")"
 
   # Preserve chime_recent_styles from existing file
@@ -175,7 +170,6 @@ _nf_write_state() {
   jq -n \
     --arg mode "$NF_CUR_MODE" \
     --arg width "$NF_CUR_WIDTH" \
-    --argjson flair "${NF_CUR_FLAIR:-true}" \
     --arg terminal_bell "$NF_CUR_TERMINAL_BELL" \
     --arg chime_sound "$NF_CUR_CHIME_SOUND" \
     --arg chime_volume "$NF_CUR_CHIME_VOLUME" \
@@ -187,7 +181,6 @@ _nf_write_state() {
     '{
       mode: $mode,
       width: $width,
-      flair: $flair,
       terminal_bell: $terminal_bell,
       chime_sound: $chime_sound,
       chime_volume: $chime_volume,
