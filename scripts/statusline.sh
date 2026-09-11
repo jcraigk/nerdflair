@@ -94,7 +94,7 @@ if [[ "$_model_core" =~ (opus|sonnet|haiku|fable) ]]; then
   name="${BASH_REMATCH[1]}"
   # Capitalize first letter
   model="$(tr '[:lower:]' '[:upper:]' <<< "${name:0:1}")${name:1}"
-  # Version: "4.8" or "4-8" → "4.8"; else a bare major like "5". A dotted/dashed
+  # Version: "4.8" or "4-8" becomes "4.8"; else a bare major like "5". A dotted/dashed
   # pair is matched first so a date stamp (e.g. "-20251001") is not picked up.
   if [[ "$_model_core" =~ [0-9]+[.-][0-9]+ ]]; then
     model+=" ${BASH_REMATCH[0]//-/.}"
@@ -261,7 +261,7 @@ OPT_BULLET="${DIM} ·${RESET}"
 
 # ── Detect effective git repo (current dir or one level deep) ────
 # Sets one of: git_dir (cwd is a repo, or wraps exactly one), or
-# _multi_git_subs (cwd wraps 2+ repos → multi-branch summary). When git_dir is
+# _multi_git_subs (cwd wraps 2+ repos, so a multi-branch summary). When git_dir is
 # adopted from a subfolder, _adopted_repo_name holds its basename for the prefix.
 git_dir=""
 _multi_git_subs=()
@@ -1202,7 +1202,7 @@ fi
 # ── Row 2: progress bar with Powerline caps ─────────────────────
 bar_width=$ROW_WIDTH
 
-# Bar fill colors — 10-tier gradient: grey-green → green → gold → orange
+# Bar fill colors — 10-tier gradient: grey-green, green, gold, orange
 # Each tier: BG (fill background), FG (powerline cap foreground), TEXT (label text)
 # Starts near the empty bar color (35;38;45) with a subtle green tint,
 # then gradually saturates through green to gold to orange.
@@ -1277,7 +1277,7 @@ if [[ "$_SL_COLOR_MODE" == "mono" ]]; then
   LIGHT_FG="\033[38;2;90;90;90m"
   LABEL_COVERED_FG="\033[38;2;22;22;22m"
 elif [[ "$_SL_COLOR_MODE" == "muted" ]]; then
-  # Muted gradient: same green → yellow → orange hues, reduced saturation (~40%)
+  # Muted gradient: same green, yellow, orange hues, reduced saturation (~40%)
   TIER_BG=(
     "\033[48;2;68;82;66m"     # 0–10   muted soft green
     "\033[48;2;70;85;68m"     # 11–20  muted green
@@ -1310,13 +1310,13 @@ fi
 
 # ── Smooth gradient control points per color mode ────────────────
 # 10 control points (one per tier), linearly interpolated per-cell in _render_bar.
-# Default: grey-green → green → gold → orange → red at the very end
+# Default: grey-green, green, gold, orange, red at the very end
 GRAD_BG_R=(48 50 55 65  88  115 140 160 180 200)
 GRAD_BG_G=(62 74 88 105 112 116 122 125 120 55)
 GRAD_BG_B=(48 48 50 52  54  55  58  60  58  50)
 
 if [[ "$_SL_COLOR_MODE" == "mono" ]]; then
-  # Monochrome: dark grey → bright grey, subtle brightness ramp
+  # Monochrome: dark grey to bright grey, subtle brightness ramp
   GRAD_BG_R=(45 55 65 76 88  100 115 132 155 185)
   GRAD_BG_G=(45 55 65 76 88  100 115 132 155 185)
   GRAD_BG_B=(45 55 65 76 88  100 115 132 155 185)
@@ -1383,7 +1383,7 @@ _compute_gradient_cache() {
 
 # ── _compute_logo_gradient: pre-compute per-cell BG/FG for logo ──
 # Populates _logo_bg_cache, _logo_fg_cache in the caller's scope.
-# Creates a dark center → light edges ambient glow effect.
+# Creates a dark center to light edges ambient glow effect.
 _compute_logo_gradient() {
   local _bar_area=$1
   _logo_bg_cache=()
@@ -1553,7 +1553,7 @@ _render_bar() {
   local _body_i=0  # body cell index (0..body_area-1)
 
   while (( _vis < _bar_area )); do
-    # Insert inner transition cap at the fill boundary (fill → empty)
+    # Insert inner transition cap at the fill boundary (fill to empty)
     if (( _has_inner_cap && _body_i == _filled )); then
       # Darker empty BG past the compact mark (the logo never coexists with a cap)
       local _cap_empty_bg="$EMPTY_BG"

@@ -4,13 +4,13 @@ set -euo pipefail
 #
 # Usage:
 #   nerdflair                      # cycle layout to next mode
-#   nerdflair layout               # cycle layout: full → compact → minimal → full
+#   nerdflair layout               # cycle layout: full, compact, minimal, full
 #   nerdflair layout full          # set layout directly
 #   nerdflair chime-events         # show/edit which events play chimes
-#   nerdflair chime-style          # cycle chime style: random → BalladPiano → ... → random
+#   nerdflair chime-style          # cycle chime style: random, BalladPiano, ..., random
 #   nerdflair chime-style random   # set chime style directly
 #   nerdflair chime-volume 50      # set chime volume to 50% (0 = muted)
-#   nerdflair color-palette        # cycle color palette: vibrant → muted → mono → vibrant
+#   nerdflair color-palette        # cycle color palette: vibrant, muted, mono, vibrant
 #   nerdflair color-palette mono   # set color palette directly
 #   nerdflair terminal-bell        # toggle terminal bell on/off (BEL char on Notification/PermissionRequest/Stop)
 #   nerdflair width 60             # set layout width to 60
@@ -199,7 +199,7 @@ while [[ $# -gt 0 ]]; do
         _nf_jq_write "$_cs_session_file" --arg chime "$_cs_matched" '.chime = $chime' "$_cs_session_file"
       fi
 
-      printf '%b✓ Session chime → %s%b (this session only)\n' "$NF_GREEN" "$_cs_matched" "$NF_RST"
+      printf '%b✓ Session chime: %s%b (this session only)\n' "$NF_GREEN" "$_cs_matched" "$NF_RST"
 
       # Play the SessionStart sound for the new style
       _cs_audio="$AUDIO_DIR/$_cs_matched/$_cs_matched-SessionStart.mp3"
@@ -297,7 +297,7 @@ while [[ $# -gt 0 ]]; do
             if ! _nf_spinners_are_ours; then
               mkdir -p "$(dirname "$_backup_file")"
               jq '.spinnerVerbs' "$NF_SETTINGS_FILE" > "$_backup_file"
-              printf '%b↗ Backed up existing spinner verbs to %s%b\n' "$NF_CYAN" "$_backup_file" "$NF_RST"
+              printf '%b✓ Backed up existing spinner verbs to %s%b\n' "$NF_CYAN" "$_backup_file" "$NF_RST"
             fi
           fi
           # Write to settings.json
@@ -483,7 +483,7 @@ fi
 
 # Handle flair toggle
 
-# Handle terminal-bell toggle: on → off → on
+# Handle terminal-bell toggle: on, off, on
 next_terminal_bell="$current_terminal_bell"
 if [[ "$toggle_terminal_bell" == "true" ]]; then
   if [[ "$current_terminal_bell" == "on" ]]; then
@@ -624,7 +624,7 @@ case "$next_mode" in
   *)       mode_desc="unknown layout" ;;
 esac
 
-printf '%b⟳ Statusline → %s%b (%s)' "$NF_CYAN" "$next_mode" "$NF_RST" "$mode_desc"
+printf '%b⟳ Statusline: %s%b (%s)' "$NF_CYAN" "$next_mode" "$NF_RST" "$mode_desc"
 
 if [[ "$next_width" == "auto" ]]; then
   printf ' %bwidth: auto%b' "$NF_DIM" "$NF_RST"

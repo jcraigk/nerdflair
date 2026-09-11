@@ -121,12 +121,12 @@ _nf_read_state() {
   NF_CUR_LAST_SESSION="${NF_CUR_LAST_SESSION:-}"
   NF_CUR_SPINNER_VERBS="${NF_CUR_SPINNER_VERBS:-}"  # on|off; empty = predates the marker
 
-  # Legacy migration: "default" color → "vibrant"
+  # Legacy migration: "default" color becomes "vibrant"
   if [[ "$NF_CUR_COLOR" == "default" ]]; then
     NF_CUR_COLOR="vibrant"
   fi
 
-  # Legacy migration: old "bell" field → terminal_bell + chime_volume
+  # Legacy migration: old "bell" field becomes terminal_bell + chime_volume
   if [[ -z "$NF_CUR_TERMINAL_BELL" && -n "${_old_bell:-}" ]]; then
     case "$_old_bell" in
       both)   NF_CUR_TERMINAL_BELL="on" ;;
@@ -137,19 +137,19 @@ _nf_read_state() {
   fi
   NF_CUR_TERMINAL_BELL="${NF_CUR_TERMINAL_BELL:-$NF_DEFAULT_TERMINAL_BELL}"
 
-  # Legacy migration: audio_style → chime_style
+  # Legacy migration: audio_style becomes chime_style
   if [[ -z "$NF_CUR_CHIME_STYLE" && -n "${_old_audio_style:-}" ]]; then
     NF_CUR_CHIME_STYLE="$_old_audio_style"
   fi
   NF_CUR_CHIME_STYLE="${NF_CUR_CHIME_STYLE:-$NF_DEFAULT_CHIME_STYLE}"
 
-  # Legacy migration: audio_events → chime_events
+  # Legacy migration: audio_events becomes chime_events
   if [[ -z "$NF_CUR_CHIME_EVENTS" && -n "${_old_audio_events:-}" ]]; then
     NF_CUR_CHIME_EVENTS="$_old_audio_events"
   fi
   NF_CUR_CHIME_EVENTS="${NF_CUR_CHIME_EVENTS:-$NF_DEFAULT_CHIME_EVENTS}"
 
-  # Legacy migration: bell_volume → chime_volume
+  # Legacy migration: bell_volume becomes chime_volume
   if [[ -z "$NF_CUR_CHIME_VOLUME" && -n "${_old_bell_volume:-}" ]]; then
     NF_CUR_CHIME_VOLUME="$_old_bell_volume"
   fi
