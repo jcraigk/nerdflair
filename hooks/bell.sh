@@ -50,6 +50,7 @@ _session_id=""
 if [[ -n "$_stdin_data" ]]; then
   _session_id=$(echo "$_stdin_data" | jq -r '.session_id // empty' 2>/dev/null || true)
 fi
+_nf_valid_session_id "$_session_id" || _session_id=""
 
 # Suppress SessionStart for resumed sessions and post-compaction restarts.
 # Three checks:

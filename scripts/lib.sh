@@ -31,6 +31,9 @@ _nf_valid_mode() {
 # Lowercase without ${var,,}, which bash 3.2 (macOS /bin/bash) lacks.
 _nf_lower() { printf "%s" "$1" | tr "[:upper:]" "[:lower:]"; }
 
+# Session ids become filenames under NF_SESSION_DIR; allow only safe characters.
+_nf_valid_session_id() { [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]]; }
+
 # ── ANSI colors (shared across scripts) ──────────────────────────
 NF_CYAN='\033[38;2;86;182;194m'
 NF_GREEN='\033[38;2;152;195;121m'

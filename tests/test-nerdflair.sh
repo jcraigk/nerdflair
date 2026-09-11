@@ -808,6 +808,19 @@ EOF
   _teardown
 }
 
+# session_id comes from stdin JSON and is used as a filename; reject traversal.
+test_bell_rejects_traversal_in_session_id() {
+  _setup
+  cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF2'
+{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "off", "chime_sound": "Glass", "chime_volume": "0", "chime_style": "BalladPiano", "chime_events": "SessionStart", "color": "vibrant"}
+EOF2
+  echo '{"session_id":"../../../pwned"}' | HOME="$FAKE_HOME" bash "$BELL" SessionStart >/dev/null 2>&1 || true
+  local escaped="no"
+  [[ -e "$FAKE_HOME/pwned" ]] && escaped="yes"
+  assert_equals "no file written outside sessions dir" "$escaped" "no"
+  _teardown
+}
+
 test_bell_suppresses_resume() {
   _setup
   cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF'

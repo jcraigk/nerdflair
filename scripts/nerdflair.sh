@@ -117,6 +117,7 @@ while [[ $# -gt 0 ]]; do
       # Set the chime style for the current session only (does not change global setting)
       # Uses last_session from state to find the active session file
       _cs_session="$NF_CUR_LAST_SESSION"
+      _nf_valid_session_id "$_cs_session" || _cs_session=""
       if [[ -z "$_cs_session" ]]; then
         printf '%b✗ No active session found%b\n' "$NF_RED" "$NF_RST"
         exit 1
