@@ -217,6 +217,7 @@ COST_GREEN="\033[38;2;90;120;82m"
 # Diff
 DIFF_PLUS="\033[38;2;130;190;110m"
 DIFF_MINUS="\033[38;2;235;100;90m"
+DIFF_BRACKET="\033[1;38;2;72;78;74m"
 # Utility
 DIM="\033[38;2;85;90;100m"
 RESET="\033[0m"
@@ -362,7 +363,7 @@ dirty_segment=""
 if [[ -n "$git_dir" ]]; then
   dirty_count="${_gc_dirty:-0}"
   if (( dirty_count > 0 )); then
-    dirty_icon=$(printf '\xef\x81\x84')  # U+F044 nf-fa-pencil
+    dirty_icon=$'\xef\x81\x84'  # U+F044 nf-fa-pencil
     dirty_segment="${MUSTARD}${dirty_icon} $(_fmt_num "$dirty_count")${RESET}"
     lines_added="${_gc_added:-0}"
     lines_removed="${_gc_removed:-0}"
@@ -377,7 +378,7 @@ if [[ -n "$git_dir" ]]; then
       diff_parts+="${DIFF_MINUS}${minus_icon}$(_fmt_num "$lines_removed")${RESET}"
     fi
     if [[ -n "$diff_parts" ]]; then
-      dirty_segment+=" \033[1;38;2;72;78;74m[${RESET}${diff_parts}\033[1;38;2;72;78;74m]${RESET}"
+      dirty_segment+=" ${DIFF_BRACKET}[${RESET}${diff_parts}${DIFF_BRACKET}]${RESET}"
     fi
   fi
 fi
@@ -420,7 +421,7 @@ if (( ${#_multi_git_subs[@]} > 0 )); then
   _multi_branch_list=$(_sanitize "$_multi_branch_list")
 fi
 
-ELLIPSIS=$(printf '\xe2\x80\xa6')  # U+2026 horizontal ellipsis (matches spinner verb)
+ELLIPSIS=$'\xe2\x80\xa6'  # U+2026 horizontal ellipsis (matches spinner verb)
 # Floor a single-repo branch truncates to when we shrink it to make room for
 # the effort label. Above this the branch yields width to keep effort visible;
 # at or below it, effort drops instead of crushing the branch further.
@@ -630,7 +631,7 @@ _fmt_duration() {
 mcp_segment=""
 mcp_segment_expanded=""
 if (( mcp_enabled > 0 )); then
-  mcp_icon=$(printf '\xef\x87\xa6')  # U+F1E6
+  mcp_icon=$'\xef\x87\xa6'  # U+F1E6
   mcp_segment="${MCP_COLOR}${mcp_icon} ${mcp_enabled} MCP${RESET}"
   # Build expanded form with sorted names: "MCP proxy, slack" (list only, no count)
   # Also build truncated variants: "Slack, Glean, 4 more"
@@ -813,7 +814,7 @@ left_budget=$(( ROW_WIDTH - right_width - 3 - _extra_reserve ))
 #   folder: "󰉋 " (2)  branch: " 󰘬 " (3)  bullet: " · " (3)  model: "icon " (2)
 # With branch:  2 + folder_name + 3 + branch + 3 + 2 + model_text = 10 + text
 # Without branch: 2 + folder_name + 3 + 2 + model_text = 7 + text
-model_icon=$(printf '\xef\x94\x9b')  # U+F51B
+model_icon=$'\xef\x94\x9b'  # U+F51B
 
 # Build model text (may include style icon)
 model_text="$model"
@@ -824,10 +825,10 @@ if [[ -n "$output_style" && "$output_style" != "default" ]]; then
   # back to their capitalized initial.
   _style_lower="$(tr '[:upper:]' '[:lower:]' <<< "$output_style")"
   case "$_style_lower" in
-    explanatory) style_suffix=" $(printf '\xef\x81\x9a')" ;;    # U+F05A nf-fa-info_circle
-    learning)    style_suffix=" $(printf '\xef\x81\x99')" ;;    # U+F059 nf-fa-question_circle
-    concise)     style_suffix=" $(printf '\xef\x81\x96')" ;;    # U+F056 nf-fa-minus_circle
-    proactive)   style_suffix=" $(printf '\xf3\xb0\xb7\xb8')" ;;  # U+F0DF8 nf-md-rocket_launch
+    explanatory) style_suffix=" "$'\xef\x81\x9a' ;;    # U+F05A nf-fa-info_circle
+    learning)    style_suffix=" "$'\xef\x81\x99' ;;    # U+F059 nf-fa-question_circle
+    concise)     style_suffix=" "$'\xef\x81\x96' ;;    # U+F056 nf-fa-minus_circle
+    proactive)   style_suffix=" "$'\xf3\xb0\xb7\xb8' ;;  # U+F0DF8 nf-md-rocket_launch
     *) style_suffix=" $(tr '[:lower:]' '[:upper:]' <<< "${_style_lower:0:1}")" ;;
   esac
 fi
@@ -851,7 +852,7 @@ fi
 state_suffix=""           # plain text holding the thinking glyph
 state_suffix_colored=""
 if [[ "$thinking_enabled" == "true" ]]; then
-  _think_icon=$(printf '\xf3\xb0\xa0\xa0')  # U+F0820 (thinking)
+  _think_icon=$'\xf3\xb0\xa0\xa0'  # U+F0820 (thinking)
   state_suffix+=" ${_think_icon}"
   state_suffix_colored+=" ${STATE_COLOR}${_think_icon}${RESET}"
 fi
@@ -860,7 +861,7 @@ fi
 fast_suffix=""
 fast_suffix_colored=""
 if [[ "$fast_mode" == "true" ]]; then
-  _fast_icon=$(printf '\xf3\xb1\xa0\x87')   # U+F1807 (fast)
+  _fast_icon=$'\xf3\xb1\xa0\x87'   # U+F1807 (fast)
   fast_suffix=" ${_fast_icon}"
   fast_suffix_colored=" ${STATE_COLOR}${_fast_icon}${RESET}"
 fi
@@ -1063,8 +1064,8 @@ fi
 
 # ── Build time + cost segments for row 3 ─────────────────────────
 time_segment=""
-cost_icon=$(printf '\xef\x85\x95')       # U+F155 dollar
-time_icon=$(printf '\xef\x80\x97')       # U+F017 clock
+cost_icon=$'\xef\x85\x95'       # U+F155 dollar
+time_icon=$'\xef\x80\x97'       # U+F017 clock
 
 TIME_COLOR="$MAUVE"
 api_fmt=""
@@ -1122,7 +1123,7 @@ if [[ -n "$_chime_label" ]]; then
   if [[ "$_SL_CHIME_STYLE" == "random" && "$formatted_cost" == "0.00" ]]; then
     _show_label=true
   fi
-  _vol_icon=$(printf '\xef\x80\xa8')  # U+F028  volume icon
+  _vol_icon=$'\xef\x80\xa8'  # U+F028  volume icon
   _vol_pct=$(awk -v v="${_SL_CHIME_VOLUME:-1}" 'BEGIN {printf "%g", v * 100}')
   if [[ "$_show_label" == "true" ]]; then
     if [[ "$_vol_pct" != "100" ]]; then
@@ -1327,8 +1328,8 @@ elif [[ "$_SL_COLOR_MODE" == "muted" ]]; then
 fi
 
 # Powerline semicircle glyphs
-PL_RIGHT=$(printf '\xee\x82\xb4')  # U+E0B4 right semicircle (closing cap)
-PL_LEFT=$(printf '\xee\x82\xb6')   # U+E0B6 left semicircle (opening cap)
+PL_RIGHT=$'\xee\x82\xb4'  # U+E0B4 right semicircle (closing cap)
+PL_LEFT=$'\xee\x82\xb6'   # U+E0B6 left semicircle (opening cap)
 
 # ── Mini context pill for minimal mode ─────────────────────────────
 # A compact Powerline-capped badge showing just the percentage, colored
@@ -1430,15 +1431,15 @@ _render_bar() {
   local _logo_start=0
   local _NF_BRAND_COLOR="\033[38;2;145;130;155m"
   _logo_icons=(
-    "$(printf '\xee\xa0\xb8')" " "
-    "$(printf '\xf3\xb0\xaf\xb7')" " "
-    "$(printf '\xf3\xb0\xb0\x9e')" " "
-    "$(printf '\xf3\xb0\xaf\xb4')" " "
-    "$(printf '\xef\x8c\xb5')" " "
-    "$(printf '\xf3\xb0\xb0\x8c')" " "
-    "$(printf '\xf3\xb0\xaf\xab')" " "
-    "$(printf '\xf3\xb0\xb0\x83')" " "
-    "$(printf '\xf3\xb0\xb0\x9e')"
+    $'\xee\xa0\xb8' " "
+    $'\xf3\xb0\xaf\xb7' " "
+    $'\xf3\xb0\xb0\x9e' " "
+    $'\xf3\xb0\xaf\xb4' " "
+    $'\xef\x8c\xb5' " "
+    $'\xf3\xb0\xb0\x8c' " "
+    $'\xf3\xb0\xaf\xab' " "
+    $'\xf3\xb0\xb0\x83' " "
+    $'\xf3\xb0\xb0\x9e'
   )
   local _logo_end=0
 
@@ -1660,7 +1661,7 @@ if [[ "$_SL_MODE" != "minimal" ]]; then
   # In compact mode, show cost right-aligned inside the bar's empty area
   _bell_icon=""
   if awk -v v="${_SL_CHIME_VOLUME:-1}" 'BEGIN {exit (v <= 0) ? 0 : 1}'; then
-    _bell_icon=$(printf '\xf3\xb0\xe5\xa9')  # U+F0969 speaker-off
+    _bell_icon=$'\xf3\xb0\xe5\xa9'  # U+F0969 speaker-off
   fi
 
   _bar_right_label=""
