@@ -193,7 +193,7 @@ while [[ $# -gt 0 ]]; do
       # Create session file if it doesn't exist (e.g. session started before plugin was installed)
       if [[ ! -f "$_cs_session_file" ]]; then
         mkdir -p "$NF_SESSION_DIR"
-        printf '{"chime":"%s"}\n' "$_cs_matched" > "$_cs_session_file"
+        jq -n --arg c "$_cs_matched" '{chime:$c}' > "$_cs_session_file"
       else
         # Update session file: overwrite chime
         _nf_jq_write "$_cs_session_file" --arg chime "$_cs_matched" '.chime = $chime' "$_cs_session_file"

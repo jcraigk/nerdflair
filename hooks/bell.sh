@@ -140,9 +140,9 @@ fi
 # Write session file as JSON
 if [[ -n "$_session_file" ]]; then
   if [[ "$EVENT" == "SessionStart" ]]; then
-    printf '{"chime":"%s"}\n' "$_resolved_style" > "$_session_file"
+    jq -n --arg c "$_resolved_style" '{chime:$c}' > "$_session_file"
   elif [[ "$_resolved_style" != "random" && ! -f "$_session_file" ]]; then
-    printf '{"chime":"%s"}\n' "$_resolved_style" > "$_session_file"
+    jq -n --arg c "$_resolved_style" '{chime:$c}' > "$_session_file"
   fi
 fi
 
@@ -193,6 +193,7 @@ if [[ "$_chime_muted" != "1" ]] && echo ",$chime_events," | grep -q ",$EVENT,"; 
     _nf_play_audio "$_audio_file" "$chime_volume"
   else
     # Fallback to macOS system sound
+    [[ "$chime_sound" =~ ^[A-Za-z0-9_-]+$ ]] || chime_sound="Glass"  # state value becomes a path segment
     _sys_sound="/System/Library/Sounds/${chime_sound}.aiff"
     if [[ -f "$_sys_sound" ]]; then
       _nf_play_audio "$_sys_sound" "$chime_volume"
