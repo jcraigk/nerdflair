@@ -449,6 +449,25 @@ test_renderer_worktree_icon_without_remote() {
   _teardown
 }
 
+# Claude Code kills slow renders with SIGTERM; the output buffer must not leak.
+test_renderer_removes_buffer_when_killed() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  echo "$state" > "$FAKE_HOME/.claude/nerdflair/state.json"
+  local i
+  for i in 1 2 3; do
+    _make_input 42 5.00 | TMPDIR="$TMPDIR_ROOT" HOME="$FAKE_HOME" bash "$RENDERER" >/dev/null 2>&1 &
+    local pid=$!
+    sleep 0.05
+    kill -TERM "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+  local leaked
+  leaked=$(ls "$TMPDIR_ROOT" | grep -c '^nerdflair-sl\.' || true)
+  assert_equals "no leaked output buffers after SIGTERM" "$leaked" "0"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on

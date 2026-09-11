@@ -22,7 +22,12 @@ input=$(cat)
 # atomically — prevents partial first-render from locking statusline height.
 _SL_BUF=$(mktemp "${TMPDIR:-/tmp}/nerdflair-sl.XXXXXX")
 exec 3>&1 1>"$_SL_BUF"
-trap 'cat "$_SL_BUF" >&3; rm -f "$_SL_BUF"' EXIT
+_sl_flush() { [[ -f "$_SL_BUF" ]] && cat "$_SL_BUF" >&3; rm -f "$_SL_BUF"; }
+# A fatal signal skips the EXIT trap, so handle it explicitly: discard the
+# partial render and remove the buffer instead of leaking it in TMPDIR.
+_sl_abort() { rm -f "$_SL_BUF"; trap - EXIT; exit 143; }
+trap '_sl_flush' EXIT
+trap '_sl_abort' INT TERM HUP
 
 # ── Shared library ────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
