@@ -141,7 +141,7 @@ mcp_total=$mcp_enabled
 # array, and printf would still emit one blank line for sort to return.
 mcp_names_sorted=()
 if (( ${#mcp_names[@]} > 0 )); then
-  IFS=$'\n' mcp_names_sorted=($(printf '%s\n' "${mcp_names[@]}" | sort -f)); unset IFS
+  while IFS= read -r _mn; do mcp_names_sorted+=("$_mn"); done < <(printf "%s\n" "${mcp_names[@]}" | sort -f)
 fi
 
 # ── Colors (4-color palette + brand) ──────────────────────────────────

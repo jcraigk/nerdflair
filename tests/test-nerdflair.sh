@@ -383,6 +383,16 @@ test_renderer_strips_escape_bytes_from_mcp_names() {
   _teardown
 }
 
+test_renderer_mcp_name_star_is_not_glob_expanded() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  echo '{"mcpServers":{"*":{}}}' > "$FAKE_CWD/.mcp.json"
+  local output
+  output=$(_render "$state" "$(_make_input 42 5.00)" | _strip_ansi)
+  assert_not_contains "star not expanded to cwd files" "$output" "file.txt"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
