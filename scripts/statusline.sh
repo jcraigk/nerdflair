@@ -40,7 +40,6 @@ _nf_read_state
 _SL_MODE="$NF_CUR_MODE"
 _SL_WIDTH="$NF_CUR_WIDTH"
 _SL_COLOR_MODE="$NF_CUR_COLOR"
-_SL_TERMINAL_BELL="$NF_CUR_TERMINAL_BELL"
 _SL_CHIME_VOLUME="$NF_CUR_CHIME_VOLUME"
 _SL_CHIME_STYLE="$NF_CUR_CHIME_STYLE"
 _SL_LAST_SESSION="$NF_CUR_LAST_SESSION"
@@ -88,7 +87,6 @@ shopt -u nocasematch
 worktree_branch=$(echo "$input" | jq -r '.worktree.branch // empty')
 
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-total_duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
 total_api_ms=$(echo "$input" | jq -r '.cost.total_api_duration_ms // empty')
 output_style=$(echo "$input" | jq -r '.output_style.name // empty')
 # Reasoning effort level (low/medium/high/xhigh/max). Absent when the model
@@ -101,14 +99,12 @@ session_id=$(echo "$input" | jq -r '.session_id // empty')
 _nf_valid_session_id "$session_id" || session_id=""
 # Context window
 used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-input_tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
 output_tokens=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
 ctx_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
 
 # MCP servers — aggregate from global ~/.claude.json, project-scoped servers
 # in ~/.claude.json, and project/cwd .mcp.json files.
 # Only active (non-disabled, not project-disabled) servers are collected.
-mcp_total=0
 mcp_enabled=0
 mcp_names=()
 _claude_json="$HOME/.claude.json"
@@ -154,7 +150,6 @@ if [[ -n "$project_dir" && -f "$_claude_json" ]]; then
     fi
   done < <(jq -r --arg p "$project_dir" '[.projects[$p].mcpServers // {} | to_entries[] | select(.value.disabled != true) | .key] | sort[]' "$_claude_json" 2>/dev/null)
 fi
-mcp_total=$mcp_enabled
 # Sort names alphabetically (handles names from multiple files).
 # Guard the empty case: bash 3.2 + set -u rejects "${arr[@]}" on an empty
 # array, and printf would still emit one blank line for sort to return.
@@ -174,20 +169,8 @@ STATE_COLOR="\033[38;2;72;200;170m"
 MAUVE="\033[38;2;145;130;155m"
 # MCP tool list
 MCP_COLOR="\033[38;2;195;130;140m"
-# Accent: money
-DARK_GREEN="\033[38;2;110;155;95m"
-# Alert: warnings (progress bar caution)
-ALERT="\033[38;2;220;175;100m"
-# Danger: critical (progress bar 80%+)
-RED="\033[38;2;224;108;117m"
-# Progress bar healthy state
-GREEN="\033[38;2;152;195;121m"
-# Agent name
-ORANGE="\033[38;2;235;150;60m"
 # Accent: dirty files
 MUSTARD="\033[38;2;180;155;95m"
-# Time/cost
-SAGE="\033[38;2;190;150;120m"
 # Cost
 COST_GREEN="\033[38;2;90;120;82m"
 # Diff
@@ -208,13 +191,7 @@ if [[ "$_SL_COLOR_MODE" == "mono" ]]; then
   STATE_COLOR="\033[38;2;150;150;150m"
   MAUVE="\033[38;2;140;140;140m"
   MCP_COLOR="\033[38;2;170;170;170m"
-  ORANGE="\033[38;2;200;200;200m"
-  DARK_GREEN="\033[38;2;150;150;150m"
-  ALERT="\033[38;2;200;200;200m"
-  RED="\033[38;2;210;210;210m"
-  GREEN="\033[38;2;170;170;170m"
   MUSTARD="\033[38;2;185;185;185m"
-  SAGE="\033[38;2;145;145;145m"
   COST_GREEN="\033[38;2;150;150;150m"
   DIFF_PLUS="\033[38;2;160;160;160m"
   DIFF_MINUS="\033[38;2;160;160;160m"
@@ -227,13 +204,7 @@ elif [[ "$_SL_COLOR_MODE" == "muted" ]]; then
   STATE_COLOR="\033[38;2;95;175;150m"
   MAUVE="\033[38;2;140;135;150m"
   MCP_COLOR="\033[38;2;170;138;142m"
-  ORANGE="\033[38;2;200;160;100m"
-  DARK_GREEN="\033[38;2;125;145;115m"
-  ALERT="\033[38;2;185;165;125m"
-  RED="\033[38;2;185;140;140m"
-  GREEN="\033[38;2;150;170;135m"
   MUSTARD="\033[38;2;185;170;115m"
-  SAGE="\033[38;2;165;145;125m"
   COST_GREEN="\033[38;2;120;135;118m"
   DIFF_PLUS="\033[38;2;115;135;110m"
   DIFF_MINUS="\033[38;2;175;125;118m"
@@ -409,7 +380,6 @@ if (( ${#_multi_git_subs[@]} > 0 )); then
 fi
 
 ELLIPSIS=$(printf '\xe2\x80\xa6')  # U+2026 horizontal ellipsis (matches spinner verb)
-MIN_BRANCH=10
 # Floor a single-repo branch truncates to when we shrink it to make room for
 # the effort label. Above this the branch yields width to keep effort visible;
 # at or below it, effort drops instead of crushing the branch further.
@@ -723,14 +693,6 @@ else
   size_fmt="$ctx_total"
 fi
 
-if (( pct >= 70 )); then
-  ctx_color="$RED"
-elif (( pct >= 40 )); then
-  ctx_color="$ALERT"
-else
-  ctx_color="$GREEN"
-fi
-
 # Context label for embedding in progress bar
 ctx_label="${used_fmt}/${size_fmt} ${pct}%"
 
@@ -755,7 +717,7 @@ _join_parts() {
 }
 
 # ── Helper: build justified row (left parts | padding | right parts)
-# Usage: _justified_row max_width left_parts_str sep right_parts_str
+# Usage: _justified_row max_width left_parts_str right_parts_str
 _justified_row() {
   local max_w=$1
   shift
@@ -863,15 +825,9 @@ if [[ "$fast_mode" == "true" ]]; then
   fast_suffix_colored=" ${STATE_COLOR}${_fast_icon}${RESET}"
 fi
 
-# Calculate chrome: folder_icon(2) + [bullet(3) + branch_icon(2) if branch] + bullet(3) + model_icon(2)
-# Home icon is just 1 char with no folder name text, so chrome is smaller
-if [[ "${_is_home:-0}" == "1" ]]; then
-  chrome=7  # home_icon(2) + bullet(3) + model_icon(2)
-  [[ -n "$branch" ]] && chrome=12  # add bullet(3) + branch_icon(2)
-else
-  chrome=7  # folder_icon(2) + bullet(3) + model_icon(2)
-  [[ -n "$branch" ]] && chrome=12  # add bullet(3) + branch_icon(2)
-fi
+# Chrome: folder or home icon(2) + bullet(3) + model_icon(2); a branch adds bullet(3) + branch_icon(2)
+chrome=7
+[[ -n "$branch" ]] && chrome=12
 
 # Available text budget after chrome
 text_budget=$(( left_budget - chrome ))
