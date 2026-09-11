@@ -131,6 +131,10 @@ while [[ $# -gt 0 ]]; do
           _cs_styles+=("$(basename "$d")")
         done < <(find "$AUDIO_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
       fi
+      if (( ${#_cs_styles[@]} == 0 )); then
+        printf '%b✗ No chime styles found under %s%b\n' "$NF_RED" "${AUDIO_DIR:-assets/audio}" "$NF_RST"
+        exit 1
+      fi
 
       if [[ -n "${2:-}" && "${2:-}" != -* ]]; then
         # Set directly
