@@ -613,6 +613,33 @@ test_config_install_on_fresh_home_writes_defaults() {
   _teardown
 }
 
+# Ownership of spinnerVerbs is recorded in state, not inferred from one verb
+# the user is allowed to edit out of spinners.txt.
+test_config_spinner_verbs_ownership_survives_verb_edits() {
+  _setup
+  echo '{}' > "$FAKE_HOME/.claude/settings.json"
+  _configure spinner-verbs enable >/dev/null 2>&1
+  assert_equals "state marks verbs as ours" "$(_state_field spinner_verbs)" "on"
+  jq '.spinnerVerbs.verbs |= map(select(contains("estus") | not))' "$FAKE_HOME/.claude/settings.json" > "$TMPDIR_ROOT/s.json" && mv "$TMPDIR_ROOT/s.json" "$FAKE_HOME/.claude/settings.json"
+  _configure spinner-verbs enable >/dev/null 2>&1
+  local backups
+  backups=$(ls "$FAKE_HOME/.claude/nerdflair/" | grep -c backup || true)
+  assert_equals "re-enable does not back up our own verbs" "$backups" "0"
+  _configure spinner-verbs disable >/dev/null 2>&1
+  assert_equals "disable removes our verbs" "$(jq 'has("spinnerVerbs")' "$FAKE_HOME/.claude/settings.json")" "false"
+  assert_equals "state marks verbs off" "$(_state_field spinner_verbs)" "off"
+  _teardown
+}
+
+test_config_spinner_verbs_disable_keeps_user_verbs() {
+  _setup
+  echo '{"spinnerVerbs":{"mode":"replace","verbs":["Mine"]}}' > "$FAKE_HOME/.claude/settings.json"
+  _configure layout full >/dev/null 2>&1
+  _configure spinner-verbs disable >/dev/null 2>&1 || true
+  assert_equals "user verbs untouched by disable" "$(jq -r '.spinnerVerbs.verbs[0]' "$FAKE_HOME/.claude/settings.json")" "Mine"
+  _teardown
+}
+
 test_config_layout_cycle() {
   _setup
   # Start at full, cycle to compact

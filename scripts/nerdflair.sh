@@ -35,6 +35,17 @@ mkdir -p "$(dirname "$NF_STATE_FILE")"
 # Read current state (populates NF_CUR_* variables with legacy migration)
 _nf_read_state
 
+# True when the spinnerVerbs in settings.json were written by nerdflair.
+# State records this explicitly; a state file that predates the marker falls
+# back to looking for one of nerdflair's own verbs.
+_nf_spinners_are_ours() {
+  [[ "$NF_CUR_SPINNER_VERBS" == "on" ]] && return 0
+  [[ -n "$NF_CUR_SPINNER_VERBS" ]] && return 1
+  [[ -f "$NF_SETTINGS_FILE" ]] || return 1
+  [[ "$(jq '.spinnerVerbs.verbs // [] | map(select(contains("Chugging an estus flask"))) | length > 0' "$NF_SETTINGS_FILE" 2>/dev/null)" == "true" ]]
+}
+_nf_mark_spinners() { NF_CUR_SPINNER_VERBS="$1"; _nf_update_field spinner_verbs "$1"; }
+
 # Alias NF_CUR_* to current_* for readability in this script
 current_mode="$NF_CUR_MODE"
 current_width="$NF_CUR_WIDTH"
@@ -254,9 +265,7 @@ while [[ $# -gt 0 ]]; do
 
       # Check if nerdflair verbs are currently enabled
       _sv_enabled=false
-      if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null; then
-        _sv_enabled=true
-      fi
+      _nf_spinners_are_ours && _sv_enabled=true
 
       if [[ "$_sv_action" == "__toggle__" || "$_sv_action" == "enable" || "$_sv_action" == "disable" ]]; then
         # Determine target state
@@ -286,9 +295,7 @@ while [[ $# -gt 0 ]]; do
           fi
           # Back up existing spinnerVerbs if they exist and aren't nerdflair's
           if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null; then
-            # Check for a known nerdflair verb as fingerprint
-            _is_nerdflair=$(jq '.spinnerVerbs.verbs // [] | map(select(contains("Chugging an estus flask"))) | length > 0' "$NF_SETTINGS_FILE")
-            if [[ "$_is_nerdflair" != "true" ]]; then
+            if ! _nf_spinners_are_ours; then
               mkdir -p "$(dirname "$_backup_file")"
               jq '.spinnerVerbs' "$NF_SETTINGS_FILE" > "$_backup_file"
               printf '%b↗ Backed up existing spinner verbs to %s%b\n' "$NF_CYAN" "$_backup_file" "$NF_RST"
@@ -300,6 +307,7 @@ while [[ $# -gt 0 ]]; do
           fi
           _tmp="$NF_SETTINGS_FILE.tmp.$$"
           jq --argjson verbs "$_verbs_json" '.spinnerVerbs = {"mode": "replace", "verbs": $verbs}' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+          _nf_mark_spinners on
           printf '%b✓ Spinner verbs: on%b (%s verbs loaded). Restart Claude Code to apply.\n' "$NF_GREEN" "$NF_RST" "$_count"
         else
           # Restore backed-up spinnerVerbs, or remove entirely
@@ -308,12 +316,14 @@ while [[ $# -gt 0 ]]; do
             _tmp="$NF_SETTINGS_FILE.tmp.$$"
             jq --argjson sv "$_backup_json" '.spinnerVerbs = $sv' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
             rm "$_backup_file"
+            _nf_mark_spinners off
             printf '%b✓ Spinner verbs: restored%b (previous verbs recovered from backup). Restart Claude Code to apply.\n' "$NF_GREEN" "$NF_RST"
           else
-            if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null; then
+            if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null && _nf_spinners_are_ours; then
               _tmp="$NF_SETTINGS_FILE.tmp.$$"
               jq 'del(.spinnerVerbs)' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
             fi
+            _nf_mark_spinners off
             printf '%b✓ Spinner verbs: off%b (back to defaults). Restart Claude Code to apply.\n' "$NF_GREEN" "$NF_RST"
           fi
         fi
@@ -361,14 +371,14 @@ while [[ $# -gt 0 ]]; do
 
       # Refresh spinnerVerbs if nerdflair spinners were previously enabled
       if [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null; then
-        _is_nerdflair=$(jq '.spinnerVerbs.verbs // [] | map(select(contains("Chugging an estus flask"))) | length > 0' "$NF_SETTINGS_FILE")
-        if [[ "$_is_nerdflair" == "true" ]]; then
+        if _nf_spinners_are_ours; then
           _verbs_file="$(cd "$SCRIPT_DIR/../assets/text" 2>/dev/null && pwd)/spinners.txt"
           if [[ -f "$_verbs_file" ]]; then
             _verbs_json=$(jq -R -s '[split("\n")[] | select(length > 0)]' < "$_verbs_file")
             _count=$(echo "$_verbs_json" | jq 'length')
             _tmp="$NF_SETTINGS_FILE.tmp.$$"
             jq --argjson verbs "$_verbs_json" '.spinnerVerbs = {"mode": "replace", "verbs": $verbs}' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
+            _nf_mark_spinners on
             printf '%b✓ Spinner verbs refreshed%b (%s verbs)\n' "$NF_GREEN" "$NF_RST" "$_count"
           fi
         fi
@@ -389,7 +399,7 @@ while [[ $# -gt 0 ]]; do
         _tmp="$NF_SETTINGS_FILE.tmp.$$"
         jq --argjson sv "$_backup_json" '.spinnerVerbs = $sv' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
         printf '  %b✓%b Restored previous spinnerVerbs from backup\n' "$NF_GREEN" "$NF_RST"
-      elif [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null; then
+      elif [[ -f "$NF_SETTINGS_FILE" ]] && jq -e '.spinnerVerbs' "$NF_SETTINGS_FILE" &>/dev/null && _nf_spinners_are_ours; then
         _tmp="$NF_SETTINGS_FILE.tmp.$$"
         jq 'del(.spinnerVerbs)' "$NF_SETTINGS_FILE" > "$_tmp" && mv "$_tmp" "$NF_SETTINGS_FILE"
         printf '  %b✓%b Removed spinnerVerbs from settings.json\n' "$NF_GREEN" "$NF_RST"

@@ -90,6 +90,7 @@ _nf_read_state() {
       .chime_events // "",
       .chime_volume // "",
       .last_session // "",
+      .spinner_verbs // "",
       .bell // "",
       .audio_style // "",
       .audio_events // "",
@@ -103,7 +104,7 @@ _nf_read_state() {
     IFS=$'\x1f' read -r \
       NF_CUR_MODE NF_CUR_WIDTH NF_CUR_COLOR \
       NF_CUR_TERMINAL_BELL NF_CUR_CHIME_SOUND NF_CUR_CHIME_STYLE \
-      NF_CUR_CHIME_EVENTS NF_CUR_CHIME_VOLUME NF_CUR_LAST_SESSION \
+      NF_CUR_CHIME_EVENTS NF_CUR_CHIME_VOLUME NF_CUR_LAST_SESSION NF_CUR_SPINNER_VERBS \
       _old_bell _old_audio_style _old_audio_events _old_bell_volume \
       <<< "$_json"
   fi
@@ -118,6 +119,7 @@ _nf_read_state() {
   NF_CUR_CHIME_EVENTS="${NF_CUR_CHIME_EVENTS:-}"
   NF_CUR_CHIME_VOLUME="${NF_CUR_CHIME_VOLUME:-}"
   NF_CUR_LAST_SESSION="${NF_CUR_LAST_SESSION:-}"
+  NF_CUR_SPINNER_VERBS="${NF_CUR_SPINNER_VERBS:-}"  # on|off; empty = predates the marker
 
   # Legacy migration: "default" color → "vibrant"
   if [[ "$NF_CUR_COLOR" == "default" ]]; then
@@ -177,6 +179,7 @@ _nf_write_state() {
     --arg chime_events "$NF_CUR_CHIME_EVENTS" \
     --arg color "$NF_CUR_COLOR" \
     --arg last_session "$NF_CUR_LAST_SESSION" \
+    --arg spinner_verbs "$NF_CUR_SPINNER_VERBS" \
     --argjson recent "$recent_styles" \
     '{
       mode: $mode,
@@ -188,6 +191,7 @@ _nf_write_state() {
       chime_events: $chime_events,
       color: $color,
       last_session: $last_session,
+      spinner_verbs: $spinner_verbs,
       chime_recent_styles: $recent
     }' > "$_tmp" && mv "$_tmp" "$NF_STATE_FILE"
 }
