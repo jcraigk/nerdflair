@@ -1,5 +1,18 @@
 #!/bin/bash
 set -uo pipefail
+
+# Width math (wc -m, ${#var}, ${var:i:1}) needs a UTF-8 locale, but Claude Code
+# spawns the statusline without LANG. _fmt_num stays locale-free on purpose.
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+  *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
+  *)
+    if locale -a 2>/dev/null | grep -qi '^C\.UTF-8$'; then
+      export LC_ALL=C.UTF-8
+    else
+      export LC_ALL=en_US.UTF-8
+    fi
+    ;;
+esac
 # Note: -e is intentionally omitted because arithmetic expressions like
 # (( x == 0 )) return exit code 1, which would cause spurious termination.
 
@@ -759,7 +772,8 @@ if [[ "$_SL_WIDTH" != "auto" && "$_SL_WIDTH" =~ ^[0-9]+$ ]]; then
   (( MAX_BAR < 50 )) && MAX_BAR=50
   (( MAX_BAR > 150 )) && MAX_BAR=150
 else
-  MAX_BAR=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  # Rows must fit the terminal exactly; the bar is 2 narrower for its end caps.
+  MAX_BAR=$(( ${COLUMNS:-$(tput cols 2>/dev/null || echo 80)} - 2 ))
   (( MAX_BAR < 50 )) && MAX_BAR=50
   (( MAX_BAR > 150 )) && MAX_BAR=150
 fi

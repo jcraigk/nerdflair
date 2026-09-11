@@ -403,6 +403,25 @@ test_renderer_non_numeric_chime_volume_does_not_error() {
   _teardown
 }
 
+# Rows must be exactly COLUMNS wide, and the same width whether or not the
+# spawning environment has a UTF-8 locale (Claude Code passes no LANG).
+_row_widths() {
+  sed $'s/\033\\[[0-9;]*m//g' | awk 'NF' | while IFS= read -r line; do
+    printf '%s ' "$(printf '%s' "$line" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')"
+  done
+}
+test_renderer_rows_match_columns_in_any_locale() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  echo "$state" > "$FAKE_HOME/.claude/nerdflair/state.json"
+  local w_c w_utf
+  w_c=$(_make_input 42 5.00 | COLUMNS=100 LC_ALL=C HOME="$FAKE_HOME" bash "$RENDERER" | _row_widths)
+  w_utf=$(_make_input 42 5.00 | COLUMNS=100 LC_ALL=en_US.UTF-8 HOME="$FAKE_HOME" bash "$RENDERER" | _row_widths)
+  assert_equals "rows are 100 wide under UTF-8" "$w_utf" "100 100 100 "
+  assert_equals "rows are 100 wide under C locale" "$w_c" "100 100 100 "
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
