@@ -55,8 +55,29 @@ _SL_LAST_SESSION="$NF_CUR_LAST_SESSION"
 _sanitize() { printf '%s' "$1" | LC_ALL=C tr -d '\\\000-\037\177'; }
 
 # ── Extract fields from Claude Code JSON ──────────────────────────
-cwd=$(echo "$input" | jq -r '.workspace.current_dir // empty')
-project_dir=$(echo "$input" | jq -r '.workspace.project_dir // empty')
+# One jq call for every scalar field (this used to be 15 separate jq forks per
+# render). Fields are joined with a unit separator: tab is IFS whitespace and
+# would collapse empty values in read.
+IFS=$'\x1f' read -r cwd project_dir raw_model worktree_branch cost total_api_ms \
+  output_style effort_level thinking_enabled fast_mode session_id \
+  used_pct output_tokens ctx_size transcript < <(printf '%s' "$input" | jq -r '[
+    .workspace.current_dir // "",
+    .workspace.project_dir // "",
+    (if (.model | type) == "object" then (.model.display_name // .model.id // "") else (.model // "") end),
+    .worktree.branch // "",
+    .cost.total_cost_usd // "",
+    .cost.total_api_duration_ms // "",
+    .output_style.name // "",
+    .effort.level // "",
+    .thinking.enabled // "",
+    .fast_mode // "",
+    .session_id // "",
+    .context_window.used_percentage // "",
+    .context_window.total_output_tokens // "",
+    .context_window.context_window_size // "",
+    .transcript_path // ""
+  ] | map(tostring) | join("\u001f")' 2>/dev/null)
+_nf_valid_session_id "$session_id" || session_id=""
 # Resolve symlinks so the path matches the key stored in ~/.claude.json
 [[ -n "$project_dir" && -d "$project_dir" ]] && project_dir=$(cd "$project_dir" && pwd -P)
 
@@ -64,7 +85,6 @@ project_dir=$(echo "$input" | jq -r '.workspace.project_dir // empty')
 # Parse out just the family + version so suffixes like "(1M context)" or a date
 # stamp are never shown. Matching is case-insensitive because display_name is
 # title-cased ("Opus 4.8 (1M context)") while IDs are lowercase ("claude-opus-4-8").
-raw_model=$(echo "$input" | jq -r 'if .model | type == "object" then (.model.display_name // .model.id // empty) else (.model // empty) end')
 model=""
 shopt -s nocasematch
 if [[ "$raw_model" =~ (opus|sonnet|haiku|fable) ]]; then
@@ -83,24 +103,6 @@ else
 fi
 shopt -u nocasematch
 
-# Worktree info (optional, absent in normal sessions)
-worktree_branch=$(echo "$input" | jq -r '.worktree.branch // empty')
-
-cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-total_api_ms=$(echo "$input" | jq -r '.cost.total_api_duration_ms // empty')
-output_style=$(echo "$input" | jq -r '.output_style.name // empty')
-# Reasoning effort level (low/medium/high/xhigh/max). Absent when the model
-# does not support the effort parameter; ultracode reports as "xhigh".
-effort_level=$(echo "$input" | jq -r '.effort.level // empty')
-# Extended thinking toggle and fast mode. Session state indicators.
-thinking_enabled=$(echo "$input" | jq -r '.thinking.enabled // empty')
-fast_mode=$(echo "$input" | jq -r '.fast_mode // empty')
-session_id=$(echo "$input" | jq -r '.session_id // empty')
-_nf_valid_session_id "$session_id" || session_id=""
-# Context window
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-output_tokens=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
-ctx_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
 
 # MCP servers — aggregate from global ~/.claude.json, project-scoped servers
 # in ~/.claude.json, and project/cwd .mcp.json files.
@@ -637,7 +639,6 @@ if [[ -n "$used_pct" && -n "$ctx_size" ]]; then
   total_used=$(( ctx_total * pct / 100 ))
 else
   # Fall back: parse last usage entry from transcript JSONL
-  transcript=$(echo "$input" | jq -r '.transcript_path // empty')
   if [[ -n "$transcript" && -f "$transcript" ]]; then
     last_usage=$(grep '"usage"' "$transcript" 2>/dev/null | tail -1 | jq -r '.message.usage // empty' 2>/dev/null)
     if [[ -n "$last_usage" && "$last_usage" != "null" ]]; then
