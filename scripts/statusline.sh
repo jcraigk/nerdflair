@@ -105,7 +105,13 @@ _is_proj_disabled() {
   done
   return 1
 }
-for mcp_file in "$_claude_json" "${project_dir}/.mcp.json" "${cwd}/.mcp.json"; do
+# cwd and project_dir usually name the same directory; -ef compares inodes so a
+# differently spelled path to the same .mcp.json is still read only once.
+_mcp_files=("$_claude_json" "${project_dir}/.mcp.json")
+if [[ ! "${cwd}/.mcp.json" -ef "${project_dir}/.mcp.json" ]]; then
+  _mcp_files+=("${cwd}/.mcp.json")
+fi
+for mcp_file in "${_mcp_files[@]}"; do
   if [[ -f "$mcp_file" ]]; then
     while IFS= read -r _name; do
       if [[ -n "$_name" ]]; then

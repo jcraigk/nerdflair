@@ -344,6 +344,19 @@ test_renderer_poisoned_git_cache_is_inert() {
   _teardown
 }
 
+# current_dir == project_dir is the normal case; the same .mcp.json must not be
+# read twice and list every server twice.
+test_renderer_mcp_servers_listed_once() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  echo '{"mcpServers":{"alpha":{},"beta":{}}}' > "$FAKE_CWD/.mcp.json"
+  local output
+  output=$(_render "$state" "$(_make_input 42 5.00)" | _strip_ansi)
+  assert_contains "both servers listed" "$output" "alpha, beta"
+  assert_not_contains "servers not duplicated" "$output" "alpha, alpha"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
