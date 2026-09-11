@@ -984,6 +984,37 @@ EOF2
   _teardown
 }
 
+test_bell_ignores_missing_or_unknown_event() {
+  _setup
+  cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF2'
+{"mode": "full", "width": "auto", "terminal_bell": "off", "chime_volume": "0", "chime_style": "BalladPiano", "chime_events": "SessionStart", "color": "vibrant"}
+EOF2
+  local rc=0
+  echo '{"session_id":"s1"}' | HOME="$FAKE_HOME" bash "$BELL" >/dev/null 2>&1 || rc=$?
+  assert_exit_code "no event exits 0" "0" "$rc"
+  echo '{"session_id":"s1"}' | HOME="$FAKE_HOME" bash "$BELL" Bogus >/dev/null 2>&1 || rc=$?
+  assert_exit_code "unknown event exits 0" "0" "$rc"
+  local created="no"; [[ -e "$FAKE_HOME/.claude/nerdflair/sessions/s1" ]] && created="yes"
+  assert_equals "no side effects without a valid event" "$created" "no"
+  _teardown
+}
+
+# The 7-day prune keys on mtime; a live session must refresh its file.
+test_bell_touches_session_file_on_events() {
+  _setup
+  cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF2'
+{"mode": "full", "width": "auto", "terminal_bell": "off", "chime_volume": "0", "chime_style": "BalladPiano", "chime_events": "Stop", "color": "vibrant"}
+EOF2
+  mkdir -p "$FAKE_HOME/.claude/nerdflair/sessions"
+  echo '{"chime":"BalladPiano"}' > "$FAKE_HOME/.claude/nerdflair/sessions/s2"
+  touch -t 202001010000 "$FAKE_HOME/.claude/nerdflair/sessions/s2"
+  echo '{"session_id":"s2"}' | HOME="$FAKE_HOME" bash "$BELL" Stop >/dev/null 2>&1 || true
+  local stale="yes"
+  [[ -n "$(find "$FAKE_HOME/.claude/nerdflair/sessions" -name s2 -newer "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null)" || -n "$(find "$FAKE_HOME/.claude/nerdflair/sessions" -name s2 -mtime -1)" ]] && stale="no"
+  assert_equals "session file mtime refreshed" "$stale" "no"
+  _teardown
+}
+
 test_bell_suppresses_resume() {
   _setup
   cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF'

@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-EVENT="${1:-Stop}"
+EVENT="${1:-}"
 
 # Read stdin payload (Claude Code passes JSON with session context)
 _stdin_data=""
@@ -27,6 +27,13 @@ AUDIO_DIR="$PLUGIN_ROOT/assets/audio"
 # shellcheck source=../scripts/lib.sh
 source "$PLUGIN_ROOT/scripts/lib.sh"
 _nf_require_jq
+
+# Only known hook events do anything; a missing or unknown name is a no-op.
+[[ -n "$EVENT" ]] || exit 0
+case " $NF_ALL_CHIME_EVENTS " in
+  *" $EVENT "*) ;;
+  *) exit 0 ;;
+esac
 
 # Read state (populates NF_CUR_* with legacy migration)
 _nf_read_state
@@ -143,6 +150,8 @@ if [[ -n "$_session_file" ]]; then
     jq -n --arg c "$_resolved_style" '{chime:$c}' > "$_session_file"
   elif [[ "$_resolved_style" != "random" && ! -f "$_session_file" ]]; then
     jq -n --arg c "$_resolved_style" '{chime:$c}' > "$_session_file"
+  elif [[ -f "$_session_file" ]]; then
+    touch "$_session_file" 2>/dev/null || true  # keep the 7-day prune from removing a live session
   fi
 fi
 
