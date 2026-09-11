@@ -4,8 +4,15 @@
 # Usage:
 #   ./plugins/nerdflair/tests/test-nerdflair.sh
 #   TRACE=1 ./plugins/nerdflair/tests/test-nerdflair.sh
+#
+# Requires bash, jq, git, and python3 (used by one glyph-counting test).
 
 set -euo pipefail
+
+# Mirror the environment Claude Code spawns the statusline with: no locale and a
+# fixed terminal width. Tests that need something else set it explicitly.
+export LC_ALL=C
+export COLUMNS=120
 if [[ "${TRACE-0}" == "1" ]]; then
   set -o xtrace
 fi
@@ -36,7 +43,7 @@ _setup() {
     git checkout -q -b main
     echo "hello" > file.txt
     git add -A
-    git commit -q -m "init"
+    git -c user.name=nerdflair -c user.email=tests@example.invalid commit -q -m "init"
     git checkout -q -b feature/test-branch
     echo "change" >> file.txt
   ) >/dev/null 2>&1
@@ -184,11 +191,11 @@ test_renderer_full_mode_has_three_rows() {
   local line_count
   line_count=$(echo "$output" | wc -l | tr -d ' ')
   # The bar prints a leading \n, so full mode = row1 + \n + bar + \n + row3 = 3 content lines
-  if (( line_count >= 3 )); then
+  if (( line_count == 3 )); then
     (( _pass++ ))
   else
     (( _fail++ ))
-    _errors+=("FAIL: full mode should have >= 3 lines, got $line_count")
+    _errors+=("FAIL: full mode should have exactly 3 lines, got $line_count")
   fi
   _teardown
 }
@@ -201,11 +208,11 @@ test_renderer_compact_mode_has_two_rows() {
   local line_count
   line_count=$(echo "$output" | wc -l | tr -d ' ')
   # Compact: row1 + \n + bar = 2 content lines
-  if (( line_count >= 2 && line_count < 4 )); then
+  if (( line_count == 2 )); then
     (( _pass++ ))
   else
     (( _fail++ ))
-    _errors+=("FAIL: compact mode should have 2-3 lines, got $line_count")
+    _errors+=("FAIL: compact mode should have exactly 2 lines, got $line_count")
   fi
   _teardown
 }
@@ -585,7 +592,7 @@ test_renderer_zero_cost_not_shown() {
   local output
   output=$(_render "$state" "$(_make_input 10 0)" | _strip_ansi)
   # Row 3 should not show $0.00
-  assert_not_contains "zero cost hidden" "$output" '$0.00'
+  assert_not_contains "zero cost hidden" "$output" "0.00"
   _teardown
 }
 
@@ -635,15 +642,6 @@ test_renderer_width_respected() {
 # ════════════════════════════════════════════════════════════════
 # CONFIGURATOR TESTS
 # ════════════════════════════════════════════════════════════════
-
-test_config_default_state_created() {
-  _setup
-  _configure layout full >/dev/null 2>&1
-  local mode
-  mode=$(_state_field "mode")
-  assert_equals "default mode is full" "$mode" "full"
-  _teardown
-}
 
 test_config_install_on_fresh_home_writes_defaults() {
   _setup
@@ -1004,7 +1002,7 @@ EOF
 test_bell_picks_random_style_on_session_start() {
   _setup
   cat > "$FAKE_HOME/.claude/nerdflair/state.json" <<'EOF'
-{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "off", "chime_sound": "Glass", "chime_volume": "0.50", "chime_style": "random", "chime_events": "SessionStart", "color": "vibrant"}
+{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "off", "chime_sound": "Glass", "chime_volume": "0", "chime_style": "random", "chime_events": "SessionStart", "color": "vibrant"}
 EOF
   echo '{"session_id":"test-new-session"}' | HOME="$FAKE_HOME" bash "$BELL" SessionStart >/dev/null 2>&1 || true
   # bell.sh should pick a real style on SessionStart and write it to per-session file
@@ -1132,7 +1130,7 @@ while IFS= read -r fn; do
   _tests+=("$fn")
 done < <(declare -F | awk '{print $3}' | grep '^test_' | sort)
 
-# Use temp files to collect results across subshells
+# Collect results in temp files so the summary survives a test that exits.
 _results_dir=$(mktemp -d)
 trap 'rm -rf "$_results_dir"' EXIT
 
@@ -1140,7 +1138,7 @@ echo "Running ${#_tests[@]} tests..."
 echo ""
 
 for t in "${_tests[@]}"; do
-  printf "  %-55s" "$t"
+  printf "  %-60s" "$t"
   # Run each test; capture pass/fail via temp files
   _pass=0
   _fail=0
