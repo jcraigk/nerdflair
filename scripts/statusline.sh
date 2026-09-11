@@ -640,7 +640,9 @@ if [[ -n "$used_pct" && -n "$ctx_size" ]]; then
   # Derive total_used from it rather than cumulative token counts, which
   # measure something different (total tokens across all API calls).
   ctx_total="$ctx_size"
-  pct="$used_pct"
+  # used_percentage may arrive as a float (e.g. 12.5); keep the integer part.
+  pct="${used_pct%%.*}"
+  [[ "$pct" =~ ^[0-9]+$ ]] || pct=0
   total_used=$(( ctx_total * pct / 100 ))
 else
   # Fall back: parse last usage entry from transcript JSONL

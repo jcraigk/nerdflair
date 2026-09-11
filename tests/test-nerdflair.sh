@@ -357,6 +357,19 @@ test_renderer_mcp_servers_listed_once() {
   _teardown
 }
 
+# Claude Code may send used_percentage as a float; bash arithmetic must not choke.
+test_renderer_accepts_fractional_used_percentage() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  local input err_file="$TMPDIR_ROOT/err"
+  input=$(_make_input 42 5.00 | sed 's/"used_percentage": 42/"used_percentage": 42.5/')
+  local output
+  output=$(printf '%s' "$input" | HOME="$FAKE_HOME" bash "$RENDERER" 2>"$err_file" | _strip_ansi)
+  assert_equals "no arithmetic error on float percentage" "" "$(cat "$err_file")"
+  assert_contains "percentage truncated to integer" "$output" "42%"
+  _teardown
+}
+
 # Regression for the "500 shows light on green" report. A label glyph landing on
 # the fill→empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
