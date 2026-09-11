@@ -86,16 +86,19 @@ _nf_valid_session_id "$session_id" || session_id=""
 # stamp are never shown. Matching is case-insensitive because display_name is
 # title-cased ("Opus 4.8 (1M context)") while IDs are lowercase ("claude-opus-4-8").
 model=""
+# Drop a parenthesised suffix such as "(1M context)" before looking for a version,
+# so a display_name with no version does not turn into "Sonnet 1".
+_model_core="${raw_model%%(*}"
 shopt -s nocasematch
-if [[ "$raw_model" =~ (opus|sonnet|haiku|fable) ]]; then
+if [[ "$_model_core" =~ (opus|sonnet|haiku|fable) ]]; then
   name="${BASH_REMATCH[1]}"
   # Capitalize first letter
   model="$(tr '[:lower:]' '[:upper:]' <<< "${name:0:1}")${name:1}"
   # Version: "4.8" or "4-8" → "4.8"; else a bare major like "5". A dotted/dashed
   # pair is matched first so a date stamp (e.g. "-20251001") is not picked up.
-  if [[ "$raw_model" =~ [0-9]+[.-][0-9]+ ]]; then
+  if [[ "$_model_core" =~ [0-9]+[.-][0-9]+ ]]; then
     model+=" ${BASH_REMATCH[0]//-/.}"
-  elif [[ "$raw_model" =~ [0-9]+ ]]; then
+  elif [[ "$_model_core" =~ [0-9]+ ]]; then
     model+=" ${BASH_REMATCH[0]}"
   fi
 else
@@ -263,8 +266,8 @@ git_dir=""
 _multi_git_subs=()
 _adopted_repo_name=""
 if [[ -n "$cwd" ]]; then
-  cd "$cwd" 2>/dev/null
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  # If cd fails, git would inspect the inherited directory and adopt the wrong repo.
+  if cd "$cwd" 2>/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git_dir="$cwd"
   else
     # Look one level deep for git repos (wrapper folder pattern).

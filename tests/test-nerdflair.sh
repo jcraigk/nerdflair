@@ -299,6 +299,16 @@ test_renderer_strips_context_suffix_from_display_name() {
   _teardown
 }
 
+test_renderer_model_without_version_ignores_context_suffix() {
+  _setup
+  local state='{"mode": "full", "width": "auto", "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
+  local output
+  output=$(_render "$state" "$(_make_input 42 5.00 claude-sonnet "Sonnet (1M context)")" | _strip_ansi)
+  assert_contains "family shown" "$output" "Sonnet"
+  assert_not_contains "context size not mistaken for a version" "$output" "Sonnet 1"
+  _teardown
+}
+
 test_renderer_falls_back_to_id_parsing() {
   _setup
   local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
