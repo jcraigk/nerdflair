@@ -37,9 +37,10 @@ Commands:
   /nerdflair chime-volume [0-100]  Set chime volume (0 = muted)
   /nerdflair color-palette [mode]  Set or cycle palette (vibrant, muted, mono)
   /nerdflair layout [mode]      Set or cycle layout (full, compact, minimal)
+  /nerdflair info                Show current settings without changing anything
   /nerdflair install             Install or upgrade (font check, settings.json; preserves settings)
   /nerdflair uninstall           Remove nerdflair from settings and clean up data
-  /nerdflair spinner-verbs      Show/manage custom spinner verbs
+  /nerdflair spinner-verbs      Toggle custom spinner verbs on/off (or: enable | disable)
   /nerdflair terminal-bell      Toggle terminal bell on/off (tab indicator)
   /nerdflair width [auto|50-150]   Set layout width
 ```
@@ -77,7 +78,7 @@ Handle each response:
 A Nerd Font is **required** -- the progress bar, icons, and Powerline caps all use Nerd Font glyphs. Without one, the statusline renders as broken boxes.
 
 ```bash
-find ~/Library/Fonts /Library/Fonts -maxdepth 1 -iname '*nerd*' 2>/dev/null | head -5
+find ~/Library/Fonts /Library/Fonts ~/.local/share/fonts ~/.fonts /usr/share/fonts -maxdepth 2 -iname '*nerd*' 2>/dev/null | head -5
 ```
 
 **If fonts are found:** Tell the user and continue to Step 2.
@@ -127,7 +128,7 @@ After giving instructions, tell the user they can verify with `echo ""` -- if th
 bash "$CLAUDE_PLUGIN_ROOT/scripts/nerdflair.sh" install
 ```
 
-This is idempotent: on first install it creates state with defaults; on upgrade it preserves existing settings. It also updates the `statusLine` entry in `~/.claude/settings.json` to use `${CLAUDE_PLUGIN_ROOT}`.
+This is idempotent: on first install it creates state with defaults; on upgrade it preserves existing settings. It also points the `statusLine` entry in `~/.claude/settings.json` at this plugin's `scripts/statusline.sh` (absolute, quoted path).
 
 Before running, check if a **non-nerdflair** statusLine is already configured:
 
@@ -232,7 +233,7 @@ bash "$CLAUDE_PLUGIN_ROOT/scripts/nerdflair.sh" info
 
 ### Width
 - **width**: sets the layout width (50-150, or "auto")
-  - **auto** (default): 80 columns
+  - **auto** (default): the detected terminal width (`$COLUMNS`), clamped to 50-150
   - **50-150**: fixed bar width in columns
 
 ### Terminal Bell
@@ -255,9 +256,10 @@ bash "$CLAUDE_PLUGIN_ROOT/scripts/nerdflair.sh" info
   - Resets when the session ends (session file is cleaned up)
   - No argument: lists available styles numbered (use AskUserQuestion to let user pick)
   - With argument: set directly by name or number: `chime-session Vibraphone` or `chime-session 19`
-- **chime-events**: user-configurable list of events that play audio chimes (default: Notification, PermissionRequest, SessionEnd, SessionStart, Stop)
+- **chime-events**: user-configurable list of events that play audio chimes (default: Notification, PermissionRequest, PreCompact, SessionEnd, SessionStart, Stop)
   - Available events: Notification, PermissionRequest, PreCompact, SessionEnd, SessionStart, Stop, UserPromptSubmit
   - Toggle individual events with `chime-events <EventName>`
+- `chime_sound` (state.json only, default `Glass`): macOS system sound played when the active style has no file for an event
 
 ### Spinner Verbs
 - **spinner-verbs**: toggle nerdflair's custom spinner/thinking text on or off
@@ -293,3 +295,6 @@ bash "$CLAUDE_PLUGIN_ROOT/scripts/nerdflair.sh" spinner-verbs disable
 ```bash
 bash "$CLAUDE_PLUGIN_ROOT/scripts/nerdflair.sh" uninstall
 ```
+
+### Legacy command aliases
+Older names still work and map onto the commands above: `bell` (terminal-bell), `chimes` (toggle mute), `bell-sound` / `audio-style` (chime-style), `audio-events` (chime-events), `volume` (chime-volume), `spinner` (spinner-verbs), `color` (color-palette), `-w` / `--width` (width), and a bare layout name such as `/nerdflair compact` (layout). Prefer the canonical names in new instructions.

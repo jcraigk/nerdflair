@@ -524,7 +524,7 @@ test_renderer_removes_buffer_when_killed() {
 }
 
 # Regression for the "500 shows light on green" report. A label glyph landing on
-# the fill→empty transition-cap cell must render as part of the fill (covered
+# the fill-to-empty transition-cap cell must render as part of the fill (covered
 # near-black text on the fill background), not with the light empty-area text on
 # the dark empty background. The cap cell is the visual cell right after the
 # last filled body cell; the fill normally draws a rounded glyph there, so a

@@ -102,7 +102,7 @@ Use the `/nerdflair` command to configure the statusline:
 | `/nerdflair chime-volume [0-100]` | Set chime volume (0 = muted) |
 | `/nerdflair color-palette [mode]` | Set or cycle palette (vibrant, muted, mono) |
 | `/nerdflair layout [mode]` | Set or cycle layout (full, compact, minimal) |
-| `/nerdflair spinner-verbs` | Toggle custom spinner verbs on/off |
+| `/nerdflair spinner-verbs [enable\|disable]` | Toggle custom spinner verbs on/off |
 | `/nerdflair terminal-bell` | Toggle terminal bell on/off (tab indicator) |
 | `/nerdflair width [auto\|50-150]` | Set layout width |
 
