@@ -6,7 +6,7 @@ set -uo pipefail
 case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
   *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
   *)
-    if locale -a 2>/dev/null | grep -qi '^C\.UTF-8$'; then
+    if locale -a 2>/dev/null | grep -qiE '^C\.UTF-?8$'; then
       export LC_ALL=C.UTF-8
     else
       export LC_ALL=en_US.UTF-8
