@@ -166,7 +166,7 @@ _nf_state_lock() {
   local _i _age
   for (( _i=0; _i<50; _i++ )); do
     mkdir "$_NF_STATE_LOCK" 2>/dev/null && return 0
-    _age=$(( $(date +%s) - $(stat -f %m "$_NF_STATE_LOCK" 2>/dev/null || stat -c %Y "$_NF_STATE_LOCK" 2>/dev/null || echo 0) ))
+    _age=$(( $(date +%s) - $(stat -c %Y "$_NF_STATE_LOCK" 2>/dev/null || stat -f %m "$_NF_STATE_LOCK" 2>/dev/null || echo 0) ))
     (( _age > 5 )) && rmdir "$_NF_STATE_LOCK" 2>/dev/null
     sleep 0.01
   done

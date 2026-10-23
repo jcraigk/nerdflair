@@ -490,10 +490,10 @@ test_renderer_does_not_rewrite_state_when_session_unchanged() {
   local state='{"mode": "full", "width": "auto", "flair": true, "terminal_bell": "on", "chime_volume": "1", "chime_style": "random", "chime_events": "Stop", "color": "vibrant"}'
   _render "$state" "$(_make_input 42 5.00)" >/dev/null
   local before after
-  before=$(stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json")
+  before=$(stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json")
   sleep 1
   _make_input 42 5.00 | HOME="$FAKE_HOME" bash "$RENDERER" >/dev/null
-  after=$(stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json")
+  after=$(stat -c %Y "$FAKE_HOME/.claude/nerdflair/state.json" 2>/dev/null || stat -f %m "$FAKE_HOME/.claude/nerdflair/state.json")
   assert_equals "state file untouched on second render" "$before" "$after"
   _teardown
 }
