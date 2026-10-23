@@ -739,10 +739,14 @@ ctx_label="${used_fmt}/${size_fmt} ${pct}%"
 
 # ── Helper: visible width of an ANSI string ──────────────────────
 _vis_len() {
-  # Strip ANSI escapes, then count characters (wc -m handles multibyte)
-  local stripped
-  stripped=$(printf '%b' "$1" | sed $'s/\033\\[[0-9;]*m//g')
-  printf '%s' "$stripped" | wc -m | tr -d ' '
+  # Strip ANSI SGR escapes with parameter expansion, then count characters.
+  # No pipeline, so no sed, wc or tr process per call.
+  local s out="" esc=$'\033['
+  printf -v s '%b' "$1"
+  while [[ "$s" == *"$esc"* ]]; do
+    out+="${s%%"$esc"*}"; s="${s#*"$esc"}"; s="${s#*m}"
+  done
+  out+="$s"; printf '%s' "${#out}"
 }
 
 # ── Helper: join parts with separator ────────────────────────────
