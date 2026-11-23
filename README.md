@@ -27,7 +27,7 @@
 
 ```
 /plugin marketplace add jcraigk/nerdflair
-/plugin install nerdflair@jcraigk/nerdflair
+/plugin install nerdflair@nerdflair
 /nerdflair install
 ```
 
